@@ -12,6 +12,7 @@ An interactive 3D anatomy explorer built with React, Three.js, and shadcn/ui. Ta
 - Search anatomical names and source identifiers.
 - Isolate a selected structure and read its details, or hide it to reveal what lies beneath.
 - Step through filled axial, coronal, and sagittal cross-sections.
+- Switch to CT radioanatomy: scroll through a real labelled CT study in three planes with soft-tissue, lung, and bone windows.
 - Use compact controls and detail panels on mobile.
 
 ## Run locally
@@ -42,6 +43,8 @@ The current viewer uses **BodyParts3D 4.0**, an adult male reference anatomy, li
 
 Geometry is simplified for browser performance while retaining every source mesh. The packaged model contains 2,288,268 triangles and downloads approximately 33 MB of compressed geometry. Full credits, source links, and adaptation details are in [ATTRIBUTION.md](public/ATTRIBUTION.md).
 
+The CT view uses one contrast-enhanced study (subject s0476) from the **TotalSegmentator dataset v2.0.1**, licensed **CC BY 4.0**: 1.5 mm voxels from the lower neck to the upper thighs, with 108 labelled structures. It downloads about 16 MB, only when CT mode is opened.
+
 This is an educational explorer, not a diagnostic or surgical tool.
 
 ## How it works
@@ -53,6 +56,10 @@ The optional WebMCP tools expose anatomy search and inspection in compatible bro
 ## Rebuilding geometry
 
 The repository includes browser-ready geometry. Rebuilding it is optional: obtain the official BodyParts3D OBJ archive and English metadata tables, prepare the joined concepts and display-system mappings, run `scripts/convert-anatomy.py`, then `node scripts/optimize-anatomy.mjs` and `node scripts/compress-models.mjs`. Simplification uses a 0.2% relative error limit per structure.
+
+## Rebuilding CT data
+
+Download a subject folder from the [TotalSegmentator dataset](https://zenodo.org/records/10047292) (it contains `ct.nii.gz` and `segmentations/`), install `nibabel`, `numpy`, and `scipy`, then run `python scripts/convert-ct.py <subject folder>`. The output goes to `public/ct/<subject>/`; update `CT_MANIFEST` in `app/ct.ts` to switch studies.
 
 ## Deploy
 

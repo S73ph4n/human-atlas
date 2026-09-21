@@ -100,3 +100,15 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
  body:has(.slice-control) .detail-sheet{bottom:calc(205px + env(safe-area-inset-bottom))!important}
  body:has(.slice-control) .layers-panel.mobile-open{bottom:calc(206px + env(safe-area-inset-bottom));max-height:calc(100dvh - 336px)}}
 @media(max-height:600px) and (orientation:landscape){.bottom-dock:has(.slice-control){width:470px}}
+.mode-switch{display:flex;gap:2px;background:#edf0f2;border-radius:9px;padding:3px}.top-actions .mode-switch button{height:34px;min-height:34px;padding:0 12px;font-size:12px;font-weight:600;border-radius:7px;color:#697582;gap:0}.top-actions .mode-switch button[aria-pressed=true]{background:white;color:#233644;box-shadow:0 1px 3px #18253612}
+.mode-ct .scene,.mode-ct .vignette,.mode-ct .view-controls{visibility:hidden}.mode-ct{background:#f2f3f3}
+.ct-view{position:absolute;top:118px;bottom:180px;left:310px;right:40px}.ct-view canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+body:has(.detail-sheet) .ct-view{right:420px}
+.ct-overlay{padding:12px 0 2px;border-bottom:1px solid #18253612}.ct-opacity{display:flex;align-items:center;gap:12px;font-size:11px;color:#75818d;padding:4px 5px 12px}.ct-opacity [data-slot=slider]{flex:1}
+.ct-windows{display:flex;gap:2px;background:#edf0f2;border-radius:8px;padding:2px}.ct-windows button{height:24px;font-size:10px;padding:0 8px;border-radius:6px;color:#697582;font-weight:500}.ct-windows button[aria-pressed=true]{background:white;color:#233644;box-shadow:0 1px 3px #18253612}.ct-control .slider-endpoints{align-items:center}
+@media(max-width:1000px){.ct-view{left:252px}body:has(.detail-sheet) .ct-view{right:380px}}
+@media(max-width:767px){.ct-view{top:150px;left:8px;right:8px;bottom:calc(208px + env(safe-area-inset-bottom))}body:has(.detail-sheet) .ct-view{right:8px}.top-actions .mode-switch button{height:34px;min-height:34px;width:auto;padding:0 10px}.ct-control .ct-end{display:none}.ct-control .slider-endpoints{justify-content:center}.ct-windows button{height:32px;font-size:12px;padding:0 12px}}
+@media(max-height:600px) and (orientation:landscape){.ct-view{top:64px;left:12px;right:12px;bottom:118px}body:has(.detail-sheet) .ct-view{right:320px}}
+[data-slot=slider-track]{height:4px;background:#e3e8eb}[data-slot=slider-range]{background:#536875}.mode-ct .scene-caption{display:none}
+@media(max-width:440px){h1 .edition{display:none}.top-actions .mode-switch button{height:32px;min-height:32px;padding:0 8px;font-size:11px}.mode-switch{padding:2px}}
+@media(max-width:360px){.top-actions .mode-switch{position:absolute;top:46px;right:0}}

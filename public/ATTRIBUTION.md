@@ -15,6 +15,16 @@ Source OBJ comments mention an older CC BY-SA 2.1 Japan license. The official cu
 
 BodyParts3D represents an adult male reference anatomy based on TARO MRI and anatomical illustration refinements. It is not a complete model of every possible human anatomical structure or variation. This interface is educational and is not a clinical tool.
 
+## CT radioanatomy data
+
+TotalSegmentator dataset v2.0.1, subject `s0476`, by Jakob Wasserthal et al., licensed under CC Attribution 4.0 International.
+
+- Dataset: https://zenodo.org/records/10047292
+- License terms: https://creativecommons.org/licenses/by/4.0/
+- Publication: Wasserthal et al. (2023), TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence. https://doi.org/10.1148/ryai.230024
+
+Adaptations: reoriented to RAS voxel order; cropped to the body, with the scanner table and surrounding air set to −1000 HU; intensities stored as one byte per voxel with piecewise-linear Hounsfield coding (precision concentrated in soft tissue); the 108 non-empty label masks merged into one label volume; display names and system groupings curated for this interface. Voxel spacing (1.5 mm isotropic) is unchanged. The study is a contrast-enhanced clinical CT of an adult male from the lower neck to the upper thighs; labels are dataset annotations and can be imprecise at boundaries.
+
 ## Historical assets (not included in the current release)
 
 Earlier repository revisions included female reference anatomy: Kristen Browne and Heidi Schlehlein, Human Reference Atlas / HuBMAP, *3D Reference Organ Set for Female v1.5* (2023). CC BY 4.0. Geometry adapted for this viewer.
