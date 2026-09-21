@@ -19,8 +19,17 @@ export const SYSTEMS: {id:SystemId;name:string;color:string;description:string}[
 export interface Part {id:string;name:string;conceptId:string;system:SystemId;chunk:number;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:[number[],number[]]}
 export interface Concept {id:string;name:string;elements:string[]}
 export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
-export type View = 'three-quarter'|'front'|'back'|'side';
-export interface SceneState {inspectorOpen?:boolean;explode:number;visible:SystemId[];selected:string[];hidden?:string[];isolate:boolean;view:View;rotate:boolean;reset:number}
+export type View = 'three-quarter'|'front'|'back'|'side'|'inferior';
+export type SliceAxis = 'axial'|'coronal'|'sagittal';
+export interface Slice {axis:SliceAxis;position:number}
+// Model space is metres with +y superior, +z anterior and +x the body's left. Each normal points toward the aligned camera.
+// Cameras follow radiological convention: axial from the feet, coronal from the front, both with the body's left on screen right.
+export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[number,number,number];view:View;ends:[string,string]}[] = [
+ {id:'axial',name:'Axial',coordinate:1,normal:[0,-1,0],view:'inferior',ends:['Feet','Head']},
+ {id:'coronal',name:'Coronal',coordinate:2,normal:[0,0,1],view:'front',ends:['Posterior','Anterior']},
+ {id:'sagittal',name:'Sagittal',coordinate:0,normal:[1,0,0],view:'side',ends:['Right','Left']},
+];
+export interface SceneState {inspectorOpen?:boolean;explode:number;visible:SystemId[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
 export const DEFAULT_VISIBLE:SystemId[] = ['cardiac','sensory','skeletal','muscular','arterial','venous','nervous','respiratory','digestive','urinary','lymphatic','endocrine','reproductive','connective'];
 export const EXPLANATIONS:Record<string,string> = {
  'heart':'A muscular pump in the chest. Its right side sends blood to the lungs; its left side sends blood through the systemic circulation.',
