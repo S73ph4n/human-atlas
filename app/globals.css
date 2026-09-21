@@ -86,3 +86,6 @@ h1 .edition{font-family:inherit;font-weight:500;font-size:10px;letter-spacing:.0
 @media(max-width:767px){body:has(.detail-sheet) .view-controls{visibility:hidden}}
 
 @media(max-height:600px) and (orientation:landscape){body:has(.detail-sheet) .bottom-dock{left:12px;right:324px;width:auto;transform:none;max-width:none;margin:0}}
+.secondary-actions{display:flex;gap:4px}.secondary-actions .secondary-action{flex:1;display:flex;align-items:center;justify-content:center;gap:6px}
+.hidden-list{flex-shrink:0;border-top:1px solid #18253612;padding:6px 0 4px}.hidden-heading{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#394957;padding-inline:4px}.hidden-heading button{font-size:10px;color:#75818d;padding:0 5px;min-height:30px}.hidden-items{max-height:132px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#b9c1c8 transparent}.hidden-item{display:flex;width:100%;justify-content:space-between;gap:8px;min-height:30px;padding:0 5px;font-size:12px;font-weight:400;color:#8a949e;text-align:left}.hidden-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:capitalize}.hidden-item:hover{color:#394957}
+@media(max-width:767px){.hidden-item,.hidden-heading button{min-height:44px;font-size:13px}.hidden-items{max-height:132px}}
