@@ -1,25 +1,27 @@
 import {decodeModelResponse} from './model-download';
 import {SYSTEMS,type SliceAxis,type SystemId} from './anatomy';
-export interface CtLabel {id:number;key:string;name:string;system:SystemId;voxels:number;center:[number,number,number];min:[number,number,number];max:[number,number,number]}
-export interface CtManifest {id:string;source:string;license:string;citation:string;shape:[number,number,number];spacing:[number,number,number];orientation:'RAS';huKnots:[number,number][];files:Record<'ct'|'labels',{url:string;bytes:number;gzipBytes:number}>;labels:CtLabel[]}
-export interface CtVolume {manifest:CtManifest;ct:Uint8Array;labels:Uint8Array}
-export const CT_MANIFEST='/ct/s0476/ct.json';
-export const CT_WINDOWS=[{id:'soft',name:'Soft tissue',width:400,level:40},{id:'lung',name:'Lung',width:1500,level:-600},{id:'bone',name:'Bone',width:1800,level:400}] as const;
+export interface CtLabel {id:number;key:string;name:string;system:SystemId;generated?:boolean;voxels:number;center:[number,number,number];min:[number,number,number];max:[number,number,number]}
+export interface CtManifest {id:string;source:string;license:string;citation:string;shape:[number,number,number];spacing:[number,number,number];orientation:'RAS';bits?:8|16;huKnots:[number,number][];files:Record<'ct'|'labels',{url:string;bytes:number;gzipBytes:number}>;labels:CtLabel[]}
+export interface CtVolume {manifest:CtManifest;ct:Uint8Array|Uint16Array;labels:Uint8Array}
+/** Each study opens centred on its start label. */
+export const CT_STUDIES=[{id:'s0476',name:'Chest – pelvis',manifest:'/ct/s0476/ct.json',start:'heart'},{id:'s0777',name:'Head & neck',manifest:'/ct/s0777/ct.json',start:'oropharynx'}] as const;
+export type CtStudy=typeof CT_STUDIES[number]['id'];
+export const CT_WINDOWS=[{id:'soft',name:'Soft tissue',width:400,level:40},{id:'lung',name:'Lung',width:1500,level:-600},{id:'bone',name:'Bone',width:1800,level:400},{id:'brain',name:'Brain',width:80,level:40}] as const;
 export type CtWindow=typeof CT_WINDOWS[number]['id'];
 // Voxel axes (RAS): +x patient right, +y anterior, +z superior. Each plane's slice index runs along this voxel axis.
 export const CT_AXIS:Record<SliceAxis,0|1|2>={axial:2,coronal:1,sagittal:0};
 
-export async function loadCt(onProgress:(n:number)=>void,signal:AbortSignal):Promise<CtVolume>{
- const response=await fetch(CT_MANIFEST,{signal});if(!response.ok)throw new Error('The CT study could not be loaded.');
+export async function loadCt(url:string,onProgress:(n:number)=>void,signal:AbortSignal):Promise<CtVolume>{
+ const response=await fetch(url,{signal});if(!response.ok)throw new Error('The CT study could not be loaded.');
  const manifest=await response.json() as CtManifest,files=[manifest.files.ct,manifest.files.labels];let done=0;onProgress(5);
- const [ct,labels]=await Promise.all(files.map(async f=>{const buffer=await decodeModelResponse(await fetch(f.url,{signal}),f.bytes,typeof DecompressionStream!=='undefined');onProgress(Math.round(5+95*(done+=f.gzipBytes)/(files[0].gzipBytes+files[1].gzipBytes)));return new Uint8Array(buffer);}));
- return {manifest,ct,labels};
+ const [ct,labels]=await Promise.all(files.map(async f=>{const buffer=await decodeModelResponse(await fetch(f.url,{signal}),f.bytes,typeof DecompressionStream!=='undefined');onProgress(Math.round(5+95*(done+=f.gzipBytes)/(files[0].gzipBytes+files[1].gzipBytes)));return buffer;}));
+ return {manifest,ct:manifest.bits===16?new Uint16Array(ct):new Uint8Array(ct),labels:new Uint8Array(labels)};
 }
 
-/** Byte code → display grey for a window, via the manifest's piecewise-linear HU coding. */
+/** Stored code → display grey for a window, via the manifest's piecewise-linear HU coding (one entry per code). */
 export function windowTable(knots:[number,number][],width:number,level:number){
- const table=new Uint8Array(256);
- for(let code=0;code<256;code++){let k=0;while(k<knots.length-2&&code>knots[k+1][0])k++;const [c0,h0]=knots[k],[c1,h1]=knots[k+1],hu=h0+(h1-h0)*(code-c0)/(c1-c0);table[code]=Math.round(Math.min(1,Math.max(0,(hu-(level-width/2))/width))*255);}
+ const size=knots[knots.length-1][0]+1,table=new Uint8Array(size);
+ for(let code=0;code<size;code++){let k=0;while(k<knots.length-2&&code>knots[k+1][0])k++;const [c0,h0]=knots[k],[c1,h1]=knots[k+1],hu=h0+(h1-h0)*(code-c0)/(c1-c0);table[code]=Math.round(Math.min(1,Math.max(0,(hu-(level-width/2))/width))*255);}
  return table;
 }
 

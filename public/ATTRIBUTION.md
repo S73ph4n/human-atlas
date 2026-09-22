@@ -17,13 +17,15 @@ BodyParts3D represents an adult male reference anatomy based on TARO MRI and ana
 
 ## CT radioanatomy data
 
-TotalSegmentator dataset v2.0.1, subject `s0476`, by Jakob Wasserthal et al., licensed under CC Attribution 4.0 International.
+TotalSegmentator dataset v2.0.1, subjects `s0476` (chest to pelvis) and `s0777` (head and neck), by Jakob Wasserthal et al., licensed under CC Attribution 4.0 International.
 
 - Dataset: https://zenodo.org/records/10047292
 - License terms: https://creativecommons.org/licenses/by/4.0/
 - Publication: Wasserthal et al. (2023), TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence. https://doi.org/10.1148/ryai.230024
 
 Adaptations: reoriented to RAS voxel order; cropped to the body, with the scanner table and surrounding air set to −1000 HU; intensities stored as one byte per voxel with piecewise-linear Hounsfield coding (precision concentrated in soft tissue); the 108 non-empty label masks merged into one label volume; display names and system groupings curated for this interface. Voxel spacing (1.5 mm isotropic) is unchanged. The study is a contrast-enhanced clinical CT of an adult male from the lower neck to the upper thighs; labels are dataset annotations and can be imprecise at boundaries.
+
+The head and neck study `s0777` is cropped from a contrast-enhanced whole-body trauma CT of an adult male, keeping the region from the third thoracic vertebra to the vertex. Intensities are stored as 16-bit HU + 1024 (unchanged values) so narrow windows such as brain keep full precision. It has 115 labels: 47 non-empty dataset labels and 68 labels generated for this viewer with the TotalSegmentator model (https://github.com/wasserth/TotalSegmentator, Apache 2.0) subtasks `head_glands_cavities`, `head_muscles`, `headneck_bones_vessels`, `headneck_muscles`, and `craniofacial_structures` (run on a head-only crop, then placed back in the full grid). Generated labels are drawn over dataset labels (for example, the mandible over the dataset skull), labels under 30 voxels are dropped, and generated labels are marked in the manifest. They are model predictions that have not been checked by an expert. The scan shows dental-filling streak artefacts and what appears to be a cervical collar.
 
 ## Historical assets (not included in the current release)
 

@@ -26,7 +26,7 @@ export default function CtView({volume,axis,index,table,overlay,opacity,systems,
    const rgb=isSelected?SELECTED:[colors[id*3],colors[id*3+1],colors[id*3+2]];d[p*4]=rgb[0];d[p*4+1]=rgb[1];d[p*4+2]=rgb[2];d[p*4+3]=Math.round(255*Math.min(1,isSelected?(edge?1:.55):edge?opacity+.4:opacity));}
   plane.labels.getContext('2d')!.putImageData(out,0,0);draw.current();
  },[volume,axis,index,table,plane,overlay,opacity,systems,selected,colors,names,w,h]);
- useEffect(()=>{view.current={zoom:1,x:0,y:0};draw.current();},[axis]);
+ useEffect(()=>{view.current={zoom:1,x:0,y:0};draw.current();},[axis,volume]);
  useEffect(()=>{
   const c=canvas.current!,el=host.current!,tap=new PointerTap(),pointers=new Map<number,{x:number;y:number}>();let pinch=0;
   const observer=new ResizeObserver(()=>draw.current());observer.observe(el);
