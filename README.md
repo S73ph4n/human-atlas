@@ -6,22 +6,25 @@ An interactive anatomy explorer for the browser: a 3D model of the adult male bo
 
 ## Features
 
-**3D atlas**
+Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI studies, in **2D** slices. Switching views keeps your place: the same plane, level, and selected structure.
+
+| Study | 3D | 2D |
+|---|---|---|
+| Reference body (BodyParts3D) | 2,234 modelled structures | — |
+| CT · Chest – pelvis | Reconstructed from the labels | 108 labelled structures |
+| CT · Head & neck | Reconstructed from the labels | 115 labelled structures |
+| MRI · Brain atlas | Reconstructed from the labels | 311 expert-labelled structures, T1 and T2 |
+
+**3D**
 - Orbit, zoom, and tap any structure to read about it.
-- Turn anatomical systems on and off, or hide single structures to see what lies beneath.
+- Turn systems or brain regions on and off, or hide single structures to see what lies beneath.
 - Isolate a structure, or explode the body into a spaced inventory of every piece.
-- Slice the body along axial, coronal, and sagittal planes as filled cross-sections.
-- Switch to 3D models reconstructed from the CT and MRI studies, and jump between a structure in 3D and its slices.
-- Slicing a reconstructed model shows the real CT or MRI image on the cut, in sync with the 2D CT and MRI views.
+- Slice along axial, coronal, and sagittal planes. On CT and MRI studies the real image appears on the cut, inside the 3D anatomy.
 
-**CT radioanatomy**
-- Two real CT studies: chest to pelvis, and head and neck.
-- Scroll through slices in all three planes with soft-tissue, lung, bone, and brain windows.
+**2D**
+- Scroll through slices in all three planes, with soft-tissue, lung, bone, and brain windows for CT and T1/T2 for MRI.
 - Coloured label overlay: hover to name a structure, tap for details, search to jump to it.
-
-**MRI radioanatomy**
-- An expert-labelled brain atlas on T1- and T2-weighted MRI with 311 structures: gyri, thalamic and hypothalamic nuclei, basal ganglia, cerebellar lobules, brainstem, ventricles, and head and neck muscles.
-- Filter by region (lobes, thalamus, cerebellum, …) and see where each structure sits in the anatomical hierarchy.
+- Brain structures are grouped by region (lobes, thalamus, cerebellum, …) and show their place in the anatomical hierarchy.
 
 ## Install and run
 
@@ -49,7 +52,7 @@ npx vite preview      # serve dist/ at http://localhost:4173
 
 ## Controls
 
-| | 3D atlas | CT and MRI |
+| | 3D | 2D |
 |---|---|---|
 | Move through slices | Slider, or `[` `]` (Shift: 1 cm) | Mouse wheel, slider, or `[` `]` (Shift: 10 slices) |
 | Zoom | Scroll or pinch | Ctrl/⌘ + scroll, or pinch |

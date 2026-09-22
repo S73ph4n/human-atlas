@@ -112,6 +112,6 @@ body:has(.detail-sheet) .ct-view{right:420px}
 [data-slot=slider-track]{height:4px;background:#e3e8eb}[data-slot=slider-range]{background:#536875}.mode-slices .scene-caption{display:none}
 @media(max-width:440px){h1 .edition{display:none}.top-actions .mode-switch button{height:32px;min-height:32px;padding:0 8px;font-size:11px}.mode-switch{padding:2px}}
 @media(max-width:440px){.identity .eyebrow{display:none}h1{font-size:22px}.top-actions .mode-switch button{padding:0 7px}}
-@media(max-width:360px){.top-actions .mode-switch{position:absolute;top:69px;right:0}.top-actions .mode-switch button{height:26px;min-height:26px}.view-controls{margin-top:12px}}
 .model-select{width:100%;margin-top:14px}.model-select select{height:36px;font-size:12px;color:#26313c;border-color:#18253620;background:#ffffff}
 @media(max-width:767px){.model-select select{height:44px;font-size:14px}}
+@media(max-width:360px){.identity-meta{padding-top:4px}h1{font-size:20px}.top-actions .mode-switch button{height:30px;min-height:30px;padding:0 6px}}
