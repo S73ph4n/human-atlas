@@ -11,6 +11,7 @@ An interactive anatomy explorer for the browser: a 3D model of the adult male bo
 - Turn anatomical systems on and off, or hide single structures to see what lies beneath.
 - Isolate a structure, or explode the body into a spaced inventory of every piece.
 - Slice the body along axial, coronal, and sagittal planes as filled cross-sections.
+- Switch to 3D models reconstructed from the CT and MRI studies, and jump between a structure in 3D and its slices.
 
 **CT radioanatomy**
 - Two real CT studies: chest to pelvis, and head and neck.
@@ -34,7 +35,7 @@ npm run dev
 
 Open http://localhost:3016. The dev server also listens on your local network, so a phone on the same Wi-Fi can open `http://<your-computer's-IP>:3016`.
 
-The first load downloads about 33 MB of 3D geometry. Each CT or MRI study (16 MB, 6.5 MB, and 7.3 MB) downloads only when you open it.
+The first load downloads about 33 MB of 3D geometry. Each CT or MRI study (16 MB, 6.5 MB, and 7.3 MB) and each reconstructed 3D model (4.3 MB, 2.3 MB, and 6.9 MB) downloads only when you open it.
 
 To build a static site instead:
 
@@ -85,6 +86,8 @@ python scripts/convert-ct.py <subject folder> --bits 16
 Use `--bits 16` for studies read with narrow windows such as brain, and `--generated <folder> …` to merge masks predicted by TotalSegmentator subtasks. The output goes to `public/ct/<subject>/`; register it in `CT_STUDIES` in `app/ct.ts`.
 
 **Rebuilding the MRI brain atlas.** Download and unzip [brain-2017-01.zip](https://www.openanatomy.org/atlases/nac/brain-2017-01.zip), then run `pip install nibabel numpy pynrrd` and `python scripts/convert-spl-atlas.py brain-2017-01`.
+
+**Rebuilding the reconstructed 3D models.** After converting a study, run `pip install numpy scipy scikit-image`, then `python scripts/build-study-meshes.py public/ct/<subject>/ct.json` (or `public/mri/spl-brain/study.json`), `node scripts/optimize-anatomy.mjs studies/<id>.json` and `node scripts/compress-models.mjs studies/<id>.json`, and list the model in `MODELS` in `app/anatomy.ts`.
 
 **Rebuilding the 3D geometry** is optional. From the BodyParts3D OBJ archive and metadata tables, run `scripts/convert-anatomy.py`, then `node scripts/optimize-anatomy.mjs` and `node scripts/compress-models.mjs`.
 

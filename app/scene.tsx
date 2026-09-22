@@ -6,7 +6,7 @@ import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {createExplosionLayout} from './explosion-layout';
 import {decodeModelResponse} from './model-download';
 import {PointerTap} from './pointer-tap';
-import {SLICE_AXES,SYSTEMS,type Atlas,type SceneState,type SystemId} from './anatomy';
+import {SLICE_AXES,SYSTEMS,groupOf,type Atlas,type SceneState,type SystemId} from './anatomy';
 // Cross-sections paint enclosing tissues first so the structures inside them stay on top.
 const CAP_ORDER:SystemId[]=['integumentary','connective','muscular','respiratory','digestive','urinary','reproductive','endocrine','lymphatic','cardiac','skeletal','sensory','nervous','venous','arterial'];
 interface Props {atlas:Atlas;state:SceneState;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
@@ -35,6 +35,11 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   const selectedData=new Uint8Array(width*4),selectionTexture=new T.DataTexture(selectedData,width,1);selectionTexture.needsUpdate=true;
   const materials:T.Material[]=[],geometries:T.BufferGeometry[]=[],pickers:(T.Mesh|undefined)[]=[],centers=atlas.parts.map(p=>new T.Vector3().fromArray(p.bounds[0]).add(new T.Vector3().fromArray(p.bounds[1])).multiplyScalar(.5));
   const offsets:T.Vector3[]=[],bounds=atlas.parts.map(p=>new T.Box3(new T.Vector3().fromArray(p.bounds[0]),new T.Vector3().fromArray(p.bounds[1])));
+  const modelBox=new T.Box3();atlas.parts.forEach(p=>{modelBox.expandByPoint(new T.Vector3().fromArray(p.bounds[0]));modelBox.expandByPoint(new T.Vector3().fromArray(p.bounds[1]));});
+  // Height usually limits the framing; width only matters for models wider than about 1.2× their height.
+  const modelSize=modelBox.getSize(new T.Vector3()),scale=Math.max(.12,Math.max(modelSize.y,modelSize.x*1.2)/1.73);
+  // Reconstructed study models carry one colour per structure as a vertex attribute.
+  const tinted=atlas.parts.some(p=>p.color);
   let packingWidth=1,packingHeight=1,lastSlice='',lastSlicePosition:number|null=null;
   const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}};
   const normalMeshes:T.Object3D[]=[],sliceObjects:T.Object3D[]=[],caps:T.Mesh[]=[],pickerMaterial=new T.MeshBasicMaterial(),capGeometry=new T.PlaneGeometry(2.4,2.4);materials.push(pickerMaterial);
@@ -64,7 +69,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   };
   const materialFor=(system:string)=>{
    // Slicing is only applied to the cross-section passes; the lit anatomy is hidden while slicing.
-   const m=patchShader(new T.MeshStandardMaterial({color:SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',metalness:.08,roughness:.53,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'}));
+   const m=patchShader(new T.MeshStandardMaterial({color:tinted?'#ffffff':SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',vertexColors:tinted,metalness:.08,roughness:.53,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'}));
    return m;
   };
   // Stencil capping: surfaces behind the slice add +1 (back faces) or -1 (front faces), so a nonzero count marks points inside a closed structure.
@@ -87,6 +92,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
     g.setAttribute('normal',new T.BufferAttribute(new Int16Array(buffer,p.normals,p.vertexCount*3),3,true));g.setIndex(new T.BufferAttribute(new Uint32Array(buffer,p.indices,p.indexCount),1));
     g.boundingBox=bounds[i].clone();g.computeBoundingSphere();const pick=new T.Mesh(g,pickerMaterial);pick.matrixAutoUpdate=false;pickers[i]=pick;geometries.push(g);
     g.setAttribute('partIndex',new T.BufferAttribute(new Float32Array(p.vertexCount).fill(i),1));
+    if(tinted){const linear=(p.color?new T.Color().setRGB(p.color[0]/255,p.color[1]/255,p.color[2]/255,T.SRGBColorSpace):new T.Color(SYSTEMS.find(s=>s.id===p.system)?.color??'#aebbb8')).toArray(),c=linear.map(v=>Math.round(v*255)),rgb=new Uint8Array(p.vertexCount*3);for(let v=0;v<p.vertexCount;v++)rgb.set(c,v*3);g.setAttribute('color',new T.BufferAttribute(rgb,3,true));}
     const list=groups.get(p.system)??[];list.push(g);groups.set(p.system,list);
    });
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);normalMeshes.push(mesh);
@@ -99,11 +105,13 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   (async()=>{try{let cursor=0;await Promise.all(Array.from({length:3},async()=>{while(cursor<atlas.chunks.length){const i=cursor++;await loadChunk(i);}}));if(!disposed){ready=true;dirty=true;}}catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();
   const fit=(view:string,extent=0)=>{
    const aspect=camera.aspect,mobile=el.clientWidth<768,normalDistance=mobile?Math.max(4.5,1.8*el.clientHeight/Math.max(160,el.clientHeight-350)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))):4;
+   // Assembled framing scales with the model (1 for the reference body); the exploded inventory has its own layout.
+   const assembled=normalDistance*scale;
    const reservedHeight=mobile?350:270;const availableAspect=Math.max(.35,(el.clientWidth-(mobile?40:340))/Math.max(160,el.clientHeight-reservedHeight));const atlasDistance=Math.max(packingHeight,packingWidth/availableAspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*(el.clientHeight/Math.max(160,el.clientHeight-reservedHeight))*1.08;
-   const distance=T.MathUtils.lerp(normalDistance,Math.max(.2,atlasDistance),extent);if(extent>.8)view='front';
-   const slice=latest.current.slice;if(view==='inferior'&&slice&&extent<.1){const distance=Math.max(.42,.72/camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.1;controls.target.set(0,slice.position,0);camera.position.set(0,slice.position-distance,distance*.02);controls.update();dirty=true;return;}
+   const distance=T.MathUtils.lerp(assembled,Math.max(.2,atlasDistance),extent);if(extent>.8)view='front';
+   const slice=latest.current.slice;if(view==='inferior'&&slice&&extent<.1){const distance=Math.max(.42,.72/camera.aspect)*scale/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.1;controls.target.set(0,slice.position,0);camera.position.set(0,slice.position-distance,distance*.02);controls.update();dirty=true;return;}
    const direction=view==='front'?new T.Vector3(0,.02,1):view==='back'?new T.Vector3(0,.02,-1):view==='side'?new T.Vector3(1,.02,0):new T.Vector3(.35,.06,1).normalize();
-   controls.target.set(extent>.1&&el.clientWidth>767?-packingWidth*.12:0,extent>.1||mobile?.85:.68,0);camera.position.copy(controls.target).addScaledVector(direction,distance);controls.update();dirty=true;
+   controls.target.set(extent>.1&&el.clientWidth>767?-packingWidth*.12:0,extent>.1?.85:(mobile?.85:.68)*scale,0);camera.position.copy(controls.target).addScaledVector(direction,distance);controls.update();dirty=true;
   };
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
@@ -137,7 +145,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
    if(changed||moving||lastExtent<0){
     const visible=new Set(s.visible),selection=new Set(s.selected),hidden=new Set(s.hidden);
     // Selected structures stay visible even when hidden, so a search result is never invisible.
-    const shown=(p:Atlas['parts'][number])=>selection.has(p.id)||(!s.isolate&&visible.has(p.system)&&!hidden.has(p.id));
+    const shown=(p:Atlas['parts'][number])=>selection.has(p.id)||(!s.isolate&&visible.has(groupOf(p))&&!hidden.has(p.id));
     const visibleParts=atlas.parts.filter(shown);
     const nextLayoutKey=visibleParts.map(p=>p.id).join(',')+':'+camera.aspect.toFixed(3);
     if(nextLayoutKey!==layoutKey){const layout=createExplosionLayout(visibleParts,camera.aspect);packingWidth=layout.width;packingHeight=layout.height;atlas.parts.forEach((p,i)=>{const cell=layout.cells.get(p.id);offsets[i]=cell?new T.Vector3(cell.x,cell.y+.85,0):centers[i].clone();});layoutKey=nextLayoutKey;if(amount>.05&&!s.isolate)fit(s.view,Math.max(0,(amount-.3)/.7));}

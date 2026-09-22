@@ -16,9 +16,10 @@ export const SYSTEMS: {id:SystemId;name:string;color:string;description:string}[
  {id:'integumentary',name:'Body surface',color:'#ba9b7d',description:'The body surface provides an outer anatomical reference. The integumentary system forms a protective barrier and contributes to sensation and temperature regulation.'},
  {id:'connective',name:'Connective tissue',color:'#aec3bb',description:'Cartilage, ligaments, and other connective tissues support, connect, and separate structures. Their roles include stabilizing joints and distributing mechanical loads.'},
 ];
-export interface Part {id:string;name:string;conceptId:string;system:SystemId;chunk:number;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:[number[],number[]]}
+/** color and group are set on models reconstructed from slice studies; group replaces system for visibility when the model defines groups. */
+export interface Part {id:string;name:string;conceptId:string;system:SystemId;color?:[number,number,number];group?:string;generated?:boolean;chunk:number;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:[number[],number[]]}
 export interface Concept {id:string;name:string;elements:string[]}
-export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
+export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;study?:string;modality?:'CT'|'MR';groups?:{id:string;name:string;hidden?:boolean}[];parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
 export type View = 'three-quarter'|'front'|'back'|'side'|'inferior';
 export type SliceAxis = 'axial'|'coronal'|'sagittal';
 export interface Slice {axis:SliceAxis;position:number}
@@ -29,7 +30,11 @@ export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[numbe
  {id:'coronal',name:'Coronal',coordinate:2,normal:[0,0,1],view:'front',ends:['Posterior','Anterior']},
  {id:'sagittal',name:'Sagittal',coordinate:0,normal:[1,0,0],view:'side',ends:['Right','Left']},
 ];
-export interface SceneState {inspectorOpen?:boolean;explode:number;visible:SystemId[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
+export interface SceneState {inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
+/** The reference body, and surface models reconstructed from each slice study's labels (built by scripts/build-study-meshes.py). */
+export const MODELS=[{id:'reference',name:'Reference body (BodyParts3D)',url:'/models/atlas.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'}] as const;
+export type ModelId=typeof MODELS[number]['id'];
+export const groupOf=(p:{group?:string;system:SystemId})=>p.group??p.system;
 export const DEFAULT_VISIBLE:SystemId[] = ['cardiac','sensory','skeletal','muscular','arterial','venous','nervous','respiratory','digestive','urinary','lymphatic','endocrine','reproductive','connective'];
 export const EXPLANATIONS:Record<string,string> = {
  'heart':'A muscular pump in the chest. Its right side sends blood to the lungs; its left side sends blood through the systemic circulation.',

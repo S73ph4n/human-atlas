@@ -37,6 +37,10 @@ All or portions of this licensed product (such portions are the "Software") have
 
 This is a modified version, not the original atlas: the 1 mm T1- and T2-weighted MRI and the label map were cropped to the labelled head, reoriented to RAS, the MRI intensities robustly rescaled to 8 bits per series, and the 311 named label values renumbered; names and hierarchy come from the atlas's `atlasStructure.json`, cerebellar lobule codes are expanded into readable names, and the viewer's region groups are curated for this interface. The atlas represents one healthy volunteer. It is for education and research only and not for clinical use; the Brigham and Women's Hospital does not endorse this application. The license notice is also shipped with the data in `public/mri/spl-brain/LICENSE.txt`.
 
+## 3D reconstructions of the CT and MRI studies
+
+`public/models/studies/` holds surface models built from the label volumes above with `scripts/build-study-meshes.py`: each label mask is blurred with a 0.7-voxel Gaussian, meshed with marching cubes at the 50% level (scikit-image), converted to metres in the viewer's axes, and simplified with meshoptimizer (12% of triangles, 0.3% relative error). They are adaptations of their source studies and carry the same attribution and license: `s0476` and `s0777` from the TotalSegmentator dataset (CC BY 4.0; the generated head and neck labels remain marked as such), and `spl-brain` from the SPL/PNL/NAC Brain Atlas (3D Slicer License, modified version, notice above).
+
 ## Historical assets (not included in the current release)
 
 Earlier repository revisions included female reference anatomy: Kristen Browne and Heidi Schlehlein, Human Reference Atlas / HuBMAP, *3D Reference Organ Set for Female v1.5* (2023). CC BY 4.0. Geometry adapted for this viewer.
