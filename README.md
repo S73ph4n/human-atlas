@@ -22,7 +22,7 @@ An interactive anatomy explorer for the browser: a 3D model of the adult male bo
 You need [Node.js](https://nodejs.org) 22.13 or newer and Git. No accounts or API keys.
 
 ```sh
-git clone https://github.com/ashemag/human-atlas.git
+git clone https://github.com/S73ph4n/human-atlas.git
 cd human-atlas
 npm ci
 npm run dev
