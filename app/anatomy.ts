@@ -1,4 +1,4 @@
-export type SystemId = 'skeletal'|'muscular'|'arterial'|'venous'|'nervous'|'digestive'|'respiratory'|'urinary'|'reproductive'|'lymphatic'|'endocrine'|'integumentary'|'connective'|'sensory'|'cardiac';
+export type SystemId = 'skeletal'|'muscular'|'arterial'|'venous'|'nervous'|'digestive'|'respiratory'|'urinary'|'reproductive'|'lymphatic'|'endocrine'|'integumentary'|'connective'|'sensory'|'cardiac'|'pregnancy';
 export const SYSTEMS: {id:SystemId;name:string;color:string;description:string}[] = [
  {id:'skeletal',name:'Skeleton',color:'#e2d9ba',description:'Bones form the supporting framework of the body, protect organs, and provide attachment points for muscles. Their internal tissue also stores minerals and produces blood cells.'},
  {id:'muscular',name:'Muscles',color:'#a85b50',description:'Skeletal muscles generate movement by pulling on their attachments. Together with tendons, they move joints, stabilize posture, and produce heat.'},
@@ -12,14 +12,16 @@ export const SYSTEMS: {id:SystemId;name:string;color:string;description:string}[
  {id:'urinary',name:'Urinary',color:'#b47961',description:'The kidneys filter blood and regulate fluid, electrolyte, and acid–base balance. Urine travels through the ureters to the bladder and exits through the urethra.'},
  {id:'lymphatic',name:'Lymphatic',color:'#879f7c',description:'Lymphatic vessels return excess tissue fluid to the circulation. Lymph nodes and other lymphoid organs support immune surveillance and responses.'},
  {id:'endocrine',name:'Endocrine',color:'#c5a09a',description:'Endocrine organs release hormones into the blood to coordinate processes such as metabolism, growth, stress responses, and reproduction.'},
- {id:'reproductive',name:'Reproductive',color:'#bda098',description:'The male reproductive structures represented here contribute to sperm production, maturation, transport, and the production of sex hormones.'},
+ {id:'reproductive',name:'Reproductive',color:'#bda098',description:'Reproductive structures produce and transport gametes and produce sex hormones. The male reference shows the testes, ducts, prostate, and penis; the female reference shows the ovaries, uterine tubes, uterus, and vagina.'},
  {id:'integumentary',name:'Body surface',color:'#ba9b7d',description:'The body surface provides an outer anatomical reference. The integumentary system forms a protective barrier and contributes to sensation and temperature regulation.'},
  {id:'connective',name:'Connective tissue',color:'#aec3bb',description:'Cartilage, ligaments, and other connective tissues support, connect, and separate structures. Their roles include stabilizing joints and distributing mechanical loads.'},
+ // Only in the female reference; hidden by default (not in DEFAULT_VISIBLE).
+ {id:'pregnancy',name:'Pregnancy reference',color:'#b88380',description:'The placenta and umbilical cord support exchange between maternal and fetal circulations during pregnancy. These reference structures are shown separately from the default adult anatomy.'},
 ];
 /** color and group are set on models reconstructed from slice studies; group replaces system for visibility when the model defines groups. */
 export interface Part {id:string;name:string;conceptId:string;system:SystemId;color?:[number,number,number];group?:string;generated?:boolean;chunk:number;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:[number[],number[]]}
 export interface Concept {id:string;name:string;elements:string[]}
-export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;study?:string;modality?:'CT'|'MR';groups?:{id:string;name:string;hidden?:boolean}[];volume?:{offset:[number,number,number];spacing:[number,number,number];shape:[number,number,number]};parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
+export interface Atlas {version:string;sex?:'male'|'female';source?:string;scope?:string;study?:string;modality?:'CT'|'MR';groups?:{id:string;name:string;hidden?:boolean}[];volume?:{offset:[number,number,number];spacing:[number,number,number];shape:[number,number,number]};parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
 export type View = 'three-quarter'|'front'|'back'|'side'|'inferior';
 export type SliceAxis = 'axial'|'coronal'|'sagittal';
 export interface Slice {axis:SliceAxis;position:number}
@@ -34,7 +36,7 @@ export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[numbe
 export interface SliceImage {canvas:HTMLCanvasElement;corners:[number,number,number][];version:number}
 export interface SceneState {sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
 /** The reference body, and surface models reconstructed from each slice study's labels (built by scripts/build-study-meshes.py). */
-export const MODELS=[{id:'reference',name:'Reference body (BodyParts3D)',url:'/models/atlas.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'}] as const;
+export const MODELS=[{id:'reference',name:'Reference body · male (BodyParts3D)',url:'/models/atlas.json'},{id:'reference-female',name:'Reference body · female (HRA)',url:'/models/atlas-female.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-ear',name:'CT · Inner ear atlas',url:'/models/studies/spl-ear.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'},{id:'amos-0590',name:'MRI · Abdomen (AMOS)',url:'/models/studies/amos-0590.json'},{id:'spl-knee',name:'MRI · Knee atlas',url:'/models/studies/spl-knee.json'}] as const;
 export type ModelId=typeof MODELS[number]['id'];
 export const groupOf=(p:{group?:string;system:SystemId})=>p.group??p.system;
 export const DEFAULT_VISIBLE:SystemId[] = ['cardiac','sensory','skeletal','muscular','arterial','venous','nervous','respiratory','digestive','urinary','lymphatic','endocrine','reproductive','connective'];

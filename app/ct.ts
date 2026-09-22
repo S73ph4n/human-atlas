@@ -3,14 +3,22 @@ import {SYSTEMS,type SliceAxis,type SystemId} from './anatomy';
 export interface CtLabel {id:number;key:string;name:string;system:SystemId;group?:string;path?:string[];color?:[number,number,number];generated?:boolean;voxels:number;center:[number,number,number];min:[number,number,number];max:[number,number,number]}
 interface CtFile {url:string;bytes:number;gzipBytes:number}
 /** One slice study. CT stores Hounsfield units through huKnots; MR stores rescaled intensities and may hold several series. */
-export interface CtManifest {id:string;modality?:'CT'|'MR';source:string;license:string;citation:string;shape:[number,number,number];spacing:[number,number,number];orientation:'RAS';bits?:8|16;huKnots:[number,number][];files:{ct:CtFile;labels:CtFile&{bits?:8|16}};series?:(CtFile&{id:string;name:string})[];groups?:{id:string;name:string}[];labels:CtLabel[]}
+export interface CtManifest {id:string;modality?:'CT'|'MR';source:string;license:string;citation:string;shape:[number,number,number];spacing:[number,number,number];orientation:'RAS';bits?:8|16;huKnots:[number,number][];files:{ct:CtFile;labels:CtFile&{bits?:8|16}};windows?:{id:string;name:string;width:number;level:number}[];series?:(CtFile&{id:string;name:string})[];groups?:{id:string;name:string}[];labels:CtLabel[]}
 export type CtImage=Uint8Array|Uint16Array;
 export interface CtVolume {manifest:CtManifest;ct:CtImage;series:Record<string,CtImage>;labels:CtImage}
-/** Each study opens centred on its start label. */
-export const CT_STUDIES=[{id:'s0476',modality:'CT',name:'Chest – pelvis',manifest:'/ct/s0476/ct.json',start:'heart'},{id:'s0777',modality:'CT',name:'Head & neck',manifest:'/ct/s0777/ct.json',start:'oropharynx'},{id:'spl-brain',modality:'MR',name:'Brain atlas',manifest:'/mri/spl-brain/study.json',start:'3004'}] as const;
+/** Each study opens centred on its start label, with its window preset; credit shows in the subtitle and note explains where labels come from. */
+export const CT_STUDIES=[
+ {id:'s0476',modality:'CT',name:'Chest – pelvis',manifest:'/ct/s0476/ct.json',start:'heart',credit:'TotalSegmentator',note:'Labels come from the TotalSegmentator dataset and can be imprecise at boundaries.',window:'soft'},
+ {id:'s0777',modality:'CT',name:'Head & neck',manifest:'/ct/s0777/ct.json',start:'oropharynx',credit:'TotalSegmentator',note:'Labels come from the TotalSegmentator dataset and can be imprecise at boundaries.',window:'soft'},
+ {id:'spl-ear',modality:'CT',name:'Inner ear atlas',manifest:'/ct/spl-ear/study.json',start:'10',credit:'SPL / Open Anatomy',note:'Label from the SPL Inner Ear Atlas, segmented by experts on a high-resolution CT of one ear.',window:'bone'},
+ {id:'spl-brain',modality:'MR',name:'Brain atlas',manifest:'/mri/spl-brain/study.json',start:'3004',credit:'SPL / Open Anatomy',note:'Label from the SPL/PNL/NAC Brain Atlas, segmented and refined by experts on one healthy volunteer.',window:'soft'},
+ {id:'amos-0590',modality:'MR',name:'Abdomen',manifest:'/mri/amos-0590/study.json',start:'pancreas',credit:'AMOS',note:'Label from the AMOS dataset, annotated by radiologists on a clinical MRI.',window:'soft'},
+ {id:'spl-knee',modality:'MR',name:'Knee atlas',manifest:'/mri/spl-knee/study.json',start:'31',credit:'SPL / Open Anatomy',note:'Label from the SPL Knee Atlas, segmented by experts on the MRI of one left knee.',window:'soft'},
+] as const;
 export type CtStudy=typeof CT_STUDIES[number]['id'];
 export const CT_WINDOWS=[{id:'soft',name:'Soft tissue',width:400,level:40},{id:'lung',name:'Lung',width:1500,level:-600},{id:'bone',name:'Bone',width:1800,level:400},{id:'brain',name:'Brain',width:80,level:40}] as const;
-export type CtWindow=typeof CT_WINDOWS[number]['id'];
+/** Window ids: the standard CT presets, or a study's own (manifest.windows). */
+export type CtWindow=string;
 // Voxel axes (RAS): +x patient right, +y anterior, +z superior. Each plane's slice index runs along this voxel axis.
 export const CT_AXIS:Record<SliceAxis,0|1|2>={axial:2,coronal:1,sagittal:0};
 

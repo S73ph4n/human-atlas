@@ -37,7 +37,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   const offsets:T.Vector3[]=[],bounds=atlas.parts.map(p=>new T.Box3(new T.Vector3().fromArray(p.bounds[0]),new T.Vector3().fromArray(p.bounds[1])));
   const modelBox=new T.Box3();atlas.parts.forEach(p=>{modelBox.expandByPoint(new T.Vector3().fromArray(p.bounds[0]));modelBox.expandByPoint(new T.Vector3().fromArray(p.bounds[1]));});
   // Height usually limits the framing; width only matters for models wider than about 1.2× their height.
-  const modelSize=modelBox.getSize(new T.Vector3()),scale=Math.max(.12,Math.max(modelSize.y,modelSize.x*1.2)/1.73);
+  const modelSize=modelBox.getSize(new T.Vector3()),scale=Math.max(.04,Math.max(modelSize.y,modelSize.x*1.2)/1.73);
   // Reconstructed study models carry one colour per structure as a vertex attribute.
   const tinted=atlas.parts.some(p=>p.color);
   let packingWidth=1,packingHeight=1,lastSlice='',lastSlicePosition:number|null=null;

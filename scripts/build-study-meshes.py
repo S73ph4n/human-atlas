@@ -18,6 +18,9 @@ from skimage.measure import marching_cubes
 
 ROOT = os.path.join(os.path.dirname(__file__), '..')
 SMOOTH_SIGMA = 0.7
+# Groups that would hide everything else start switched off: head muscles around the brain, the temporal bone and the large
+# jugular and carotid around the ear.
+HIDDEN_GROUPS = {'spl-brain': {'muscles'}, 'spl-ear': {'bones', 'vessels'}}
 CHUNK_BYTES = 4_000_000
 
 
@@ -139,8 +142,7 @@ def main(manifest_path):
              # Voxel (i, j, k) of the study sits at ((-i·sx + o0), (k·sz + o1), (j·sy + o2)) / 1000 in the scene, so slices line up exactly.
              'volume': {'offset': offset.round(4).tolist(), 'spacing': list(spacing), 'shape': study['shape']}}
     if study.get('groups'):
-        # Muscles wrapping the head would hide the brain, so that group starts switched off.
-        model['groups'] = [{**g, 'hidden': True} if g['id'] == 'muscles' else g for g in study['groups']]
+        model['groups'] = [{**g, 'hidden': True} if g['id'] in HIDDEN_GROUPS.get(sid, ()) else g for g in study['groups']]
     with open(os.path.join(out_dir, f'{sid}.json'), 'w') as f:
         json.dump(model, f, separators=(',', ':'))
     print(f"{sid}: {len(parts)} surfaces, {model['triangles']:,} triangles, {sum(c['bytes'] for c in chunks) / 1e6:.1f} MB before optimisation")

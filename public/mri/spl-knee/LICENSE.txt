@@ -1,0 +1,3 @@
+All or portions of this licensed product (such portions are the "Software") have been obtained under license from The Brigham and Women's Hospital, Inc. and are subject to the following terms and conditions: https://github.com/Slicer/Slicer/blob/main/License.txt
+
+This is a modified version of the SPL Knee Atlas (knee-2016-09): cropped to the labelled knee, resampled to 0.5 mm isotropic voxels, reoriented to RAS, MRI intensities rescaled to 8 bits, and label values renumbered. It is not the original atlas. Research and education only; not for clinical use.

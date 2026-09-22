@@ -10,10 +10,14 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 
 | Study | 3D | 2D |
 |---|---|---|
-| Reference body (BodyParts3D) | 2,234 modelled structures | — |
+| Reference body · male (BodyParts3D) | 2,234 modelled structures | — |
+| Reference body · female (HRA) | 888 modelled structures, partial skeleton and muscles | — |
 | CT · Chest – pelvis | Reconstructed from the labels | 108 labelled structures |
 | CT · Head & neck | Reconstructed from the labels | 115 labelled structures |
+| CT · Inner ear atlas | Reconstructed from the labels | 15 expert-labelled structures, high-resolution CT |
 | MRI · Brain atlas | Reconstructed from the labels | 311 expert-labelled structures, T1 and T2 |
+| MRI · Abdomen (AMOS) | Reconstructed from the labels | 13 organs annotated by radiologists |
+| MRI · Knee atlas | Reconstructed from the labels | 48 expert-labelled structures |
 
 **3D**
 - Orbit, zoom, and tap any structure to read about it.
@@ -39,7 +43,7 @@ npm run dev
 
 Open http://localhost:3016. The dev server also listens on your local network, so a phone on the same Wi-Fi can open `http://<your-computer's-IP>:3016`.
 
-The first load downloads about 33 MB of 3D geometry. Each CT or MRI study (16 MB, 6.5 MB, and 7.3 MB) and each reconstructed 3D model (4.3 MB, 2.3 MB, and 6.9 MB) downloads only when you open it.
+The first load downloads about 33 MB of 3D geometry. The female reference body (24 MB), each CT or MRI study (7–16 MB), and each reconstructed 3D model (1–7 MB) download only when you open them.
 
 To build a static site instead:
 
@@ -64,7 +68,9 @@ npx vite preview      # serve dist/ at http://localhost:4173
 
 - **3D model:** [BodyParts3D 4.0](https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html), an adult male reference anatomy, CC BY 4.0. It does not include every structure (for example, the lungs are missing).
 - **CT studies:** [TotalSegmentator dataset v2.0.1](https://zenodo.org/records/10047292), CC BY 4.0: subject s0476 (chest to pelvis, 108 labels) and subject s0777 (head and neck, 115 labels). 68 of the head and neck labels were generated with the [TotalSegmentator model](https://github.com/wasserth/TotalSegmentator) and are marked as unverified in the app.
-- **MRI brain atlas:** [SPL/PNL/NAC Brain Atlas](https://www.openanatomy.org/atlas-pages/atlas-spl-nac-brain.html) from the Open Anatomy Project, obtained under license from The Brigham and Women's Hospital, Inc. and subject to the [3D Slicer License](https://github.com/Slicer/Slicer/blob/main/License.txt). The version here is modified (cropped, reoriented, rescaled, renumbered).
+- **Female reference body:** [HRA 3D Reference Organ Set for Female v1.5](https://doi.org/10.48539/HBM352.BTSQ.586), CC BY 4.0.
+- **Brain, knee and inner ear atlases:** [SPL atlases](https://www.openanatomy.org/atlas-pages/) from the Open Anatomy Project, obtained under license from The Brigham and Women's Hospital, Inc. and subject to the [3D Slicer License](https://github.com/Slicer/Slicer/blob/main/License.txt). The versions here are modified (resampled, cropped, reoriented, rescaled, renumbered).
+- **Abdominal MRI:** case amos_0590 of [AMOS](https://zenodo.org/records/7262581), CC BY-SA 4.0; its adapted files are shared under the same license.
 
 Full credits and a description of every adaptation are in [ATTRIBUTION.md](public/ATTRIBUTION.md).
 
@@ -89,7 +95,7 @@ python scripts/convert-ct.py <subject folder> --bits 16
 
 Use `--bits 16` for studies read with narrow windows such as brain, and `--generated <folder> …` to merge masks predicted by TotalSegmentator subtasks. The output goes to `public/ct/<subject>/`; register it in `CT_STUDIES` in `app/ct.ts`.
 
-**Rebuilding the MRI brain atlas.** Download and unzip [brain-2017-01.zip](https://www.openanatomy.org/atlases/nac/brain-2017-01.zip), then run `pip install nibabel numpy pynrrd` and `python scripts/convert-spl-atlas.py brain-2017-01`.
+**Rebuilding the SPL atlases and AMOS.** Download and unzip an SPL atlas ([brain](https://www.openanatomy.org/atlases/nac/brain-2017-01.zip), [knee](https://www.openanatomy.org/atlases/nac/knee-2016-09.zip), [inner ear](https://www.openanatomy.org/atlases/nac/inner-ear-2018-02.zip)), run `pip install nibabel numpy scipy pynrrd`, then `python scripts/convert-spl-atlas.py <brain|knee|inner-ear> <folder>`. For AMOS, extract an MRI case and its label from `amos22.zip` and run `python scripts/convert-amos-mri.py <image> <label> amos_0590`.
 
 **Rebuilding the reconstructed 3D models.** After converting a study, run `pip install numpy scipy scikit-image`, then `python scripts/build-study-meshes.py public/ct/<subject>/ct.json` (or `public/mri/spl-brain/study.json`), `node scripts/optimize-anatomy.mjs studies/<id>.json` and `node scripts/compress-models.mjs studies/<id>.json`, and list the model in `MODELS` in `app/anatomy.ts`.
 
@@ -97,4 +103,4 @@ Use `--bits 16` for studies read with narrow windows such as brain, and `--gener
 
 ## License
 
-The application code is under the [MIT License](LICENSE). The 3D anatomy and CT data are under CC BY 4.0, and the MRI brain atlas under the 3D Slicer License; keep their notices when redistributing them.
+The application code is under the [MIT License](LICENSE). The data keep their own licenses: CC BY 4.0 (BodyParts3D, HRA, TotalSegmentator), the 3D Slicer License (SPL atlases), and CC BY-SA 4.0 (AMOS). Keep their notices when redistributing them.
