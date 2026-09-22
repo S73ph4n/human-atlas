@@ -42,6 +42,10 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   const tinted=atlas.parts.some(p=>p.color);
   let packingWidth=1,packingHeight=1,lastSlice='',lastSlicePosition:number|null=null;
   const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}};
+  // Image mode (reconstructed study models): the study's slice on the cutting plane, with the clipped anatomy around it.
+  const imageGeometry=new T.BufferGeometry();imageGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(12),3));imageGeometry.setAttribute('uv',new T.BufferAttribute(new Float32Array([0,1,1,1,0,0,1,0]),2));imageGeometry.setIndex([0,2,1,1,2,3]);
+  const imageMaterial=new T.MeshBasicMaterial({side:T.DoubleSide,toneMapped:false,alphaTest:.5}),imagePlane=new T.Mesh(imageGeometry,imageMaterial);imagePlane.visible=false;imagePlane.frustumCulled=false;
+  let imageTexture:T.CanvasTexture|null=null,imageCanvas:HTMLCanvasElement|null=null,lastImage=-1,lastSliceView='';
   const normalMeshes:T.Object3D[]=[],sliceObjects:T.Object3D[]=[],caps:T.Mesh[]=[],pickerMaterial=new T.MeshBasicMaterial(),capGeometry=new T.PlaneGeometry(2.4,2.4);materials.push(pickerMaterial);
   const markerPositions=new Float32Array(atlas.parts.length*3),markerGeometry=new T.BufferGeometry();markerGeometry.setAttribute('position',new T.BufferAttribute(markerPositions,3));
   const markerMaterial=new T.PointsMaterial({color:0x64748b,size:5,sizeAttenuation:false,transparent:true,opacity:.72,depthTest:false});
@@ -81,6 +85,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   // A thin slab of each surface draws the boundary between neighbouring structures of the same system.
   const outlines=new Map(SYSTEMS.map(x=>{const m=patchShader(new T.MeshBasicMaterial({color:new T.Color(x.color).multiplyScalar(.42),side:T.DoubleSide,toneMapped:false,depthTest:false,depthWrite:false}));m.userData.sliceThickness=.0016;return [x.id,m];}));
   const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)]));
+  materials.push(imageMaterial);scene.add(imagePlane);
   let loaded=0;
   const loadChunk=async(ci:number)=>{
    const chunk=atlas.chunks[ci],compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';const response=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal});const buffer=await decodeModelResponse(response,chunk.bytes,compressed);if(disposed)return;
@@ -98,8 +103,8 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);normalMeshes.push(mesh);
     const order=CAP_ORDER.indexOf(system as SystemId);
     const passes:[T.Material,number][]=[...stencilPasses[0].map(m=>[m,order*2+1] as [T.Material,number]),...stencilPasses[1].map(m=>[m,500] as [T.Material,number]),[outlines.get(system as SystemId)!,600]];
-    for(const [material,renderOrder] of passes){const pass=new T.Mesh(geometry,material);pass.renderOrder=renderOrder;pass.frustumCulled=false;pass.visible=!!latest.current.slice;scene.add(pass);sliceObjects.push(pass);}
-    normalMeshes.forEach(m=>m.visible=!latest.current.slice);});
+    for(const [material,renderOrder] of passes){const pass=new T.Mesh(geometry,material);pass.renderOrder=renderOrder;pass.frustumCulled=false;scene.add(pass);sliceObjects.push(pass);}
+    lastSliceView='';});
    lastState=null;loaded++;onProgress(Math.round(loaded/atlas.chunks.length*100));dirty=true;
   };
   (async()=>{try{let cursor=0;await Promise.all(Array.from({length:3},async()=>{while(cursor<atlas.chunks.length){const i=cursor++;await loadChunk(i);}}));if(!disposed){ready=true;dirty=true;}}catch(e){if(!disposed)onError(e instanceof Error?e.message:'Could not load the anatomy.');}})();
@@ -109,7 +114,8 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
    const assembled=normalDistance*scale;
    const reservedHeight=mobile?350:270;const availableAspect=Math.max(.35,(el.clientWidth-(mobile?40:340))/Math.max(160,el.clientHeight-reservedHeight));const atlasDistance=Math.max(packingHeight,packingWidth/availableAspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*(el.clientHeight/Math.max(160,el.clientHeight-reservedHeight))*1.08;
    const distance=T.MathUtils.lerp(assembled,Math.max(.2,atlasDistance),extent);if(extent>.8)view='front';
-   const slice=latest.current.slice;if(view==='inferior'&&slice&&extent<.1){const distance=Math.max(.42,.72/camera.aspect)*scale/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.1;controls.target.set(0,slice.position,0);camera.position.set(0,slice.position-distance,distance*.02);controls.update();dirty=true;return;}
+   const slice=latest.current.slice;if(view==='inferior'&&slice&&extent<.1){// Seen from the feet, the cross-section is the model's width × depth.
+    const distance=Math.max(modelSize.z*1.3,modelSize.x*1.1/camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.1;controls.target.set(0,slice.position,0);camera.position.set(0,slice.position-distance,distance*.02);controls.update();dirty=true;return;}
    const direction=view==='front'?new T.Vector3(0,.02,1):view==='back'?new T.Vector3(0,.02,-1):view==='side'?new T.Vector3(1,.02,0):new T.Vector3(.35,.06,1).normalize();
    controls.target.set(extent>.1&&el.clientWidth>767?-packingWidth*.12:0,extent>.1?.85:(mobile?.85:.68)*scale,0);camera.position.copy(controls.target).addScaledVector(direction,distance);controls.update();dirty=true;
   };
@@ -159,9 +165,16 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
     });partTexture.needsUpdate=true;selectionTexture.needsUpdate=true;markerGeometry.attributes.position.needsUpdate=true;lastState=s;lastExtent=amount;dirty=true;
    }
    const sliceKey=s.slice?`${s.slice.axis}:${s.slice.position}`:'';
-   if(sliceKey!==lastSlice){const axis=s.slice&&SLICE_AXES.find(a=>a.id===s.slice!.axis);if(s.slice&&axis){const n=axis.normal;sliceUniforms.slicePlane.value.set(n[0],n[1],n[2],s.slice.position*n[axis.coordinate]);caps.forEach(cap=>{cap.position.set(0,.86,0);cap.position.setComponent(axis.coordinate,s.slice!.position);cap.rotation.set(axis.id==='axial'?Math.PI/2:0,axis.id==='sagittal'?Math.PI/2:0,0);});}sliceUniforms.sliceActive.value=s.slice?1:0;normalMeshes.forEach(m=>m.visible=!s.slice);sliceObjects.forEach(o=>o.visible=!!s.slice);lastSlice=sliceKey;dirty=true;
+   if(sliceKey!==lastSlice){const axis=s.slice&&SLICE_AXES.find(a=>a.id===s.slice!.axis);if(s.slice&&axis){const n=axis.normal;sliceUniforms.slicePlane.value.set(n[0],n[1],n[2],s.slice.position*n[axis.coordinate]);caps.forEach(cap=>{cap.position.set(0,.86,0);cap.position.setComponent(axis.coordinate,s.slice!.position);cap.rotation.set(axis.id==='axial'?Math.PI/2:0,axis.id==='sagittal'?Math.PI/2:0,0);});}sliceUniforms.sliceActive.value=s.slice?1:0;lastSlice=sliceKey;dirty=true;
     // Keep the axial camera at a fixed distance from the slice while scrolling through levels.
     const position=s.slice?.axis==='axial'?s.slice.position:null;if(position!==null&&lastSlicePosition!==null){const delta=position-lastSlicePosition;controls.target.y+=delta;camera.position.y+=delta;controls.update();}lastSlicePosition=position;}
+   const image=s.slice?s.sliceImage:null,sliceView=`${!!s.slice}:${!!image}:${s.sliceAnatomy!==false}`;
+   if(sliceView!==lastSliceView){normalMeshes.forEach(m=>m.visible=!s.slice||(!!image&&s.sliceAnatomy!==false));sliceObjects.forEach(o=>o.visible=!!s.slice&&!image);imagePlane.visible=!!image;lastSliceView=sliceView;dirty=true;}
+   if(image&&image.version!==lastImage){
+    if(image.canvas!==imageCanvas){imageTexture?.dispose();imageTexture=new T.CanvasTexture(image.canvas);imageTexture.colorSpace=T.SRGBColorSpace;imageTexture.generateMipmaps=false;imageTexture.minFilter=T.LinearFilter;imageMaterial.map=imageTexture;imageMaterial.needsUpdate=true;imageCanvas=image.canvas;}
+    else imageTexture!.needsUpdate=true;
+    const corners=imageGeometry.attributes.position as T.BufferAttribute;image.corners.forEach((c,i)=>corners.setXYZ(i,c[0],c[1],c[2]));corners.needsUpdate=true;lastImage=image.version;dirty=true;
+   }
    if(s.view!==lastView||s.reset!==lastReset){fit(s.view,amount);lastView=s.view;lastReset=s.reset;}
    if(moving&&!s.isolate)fit(amount>.5?'front':s.view,Math.max(0,(amount-.3)/.7));
    const isolateKey=s.isolate?s.selected.join(',')+':'+s.reset+':'+s.inspectorOpen+':'+camera.aspect:'';
@@ -176,7 +189,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
 
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();partTexture.dispose();selectionTexture.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();partTexture.dispose();selectionTexture.dispose();imageTexture?.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  return <div className="scene" ref={host}/>;
 }

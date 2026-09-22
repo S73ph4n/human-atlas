@@ -135,7 +135,9 @@ def main(manifest_path):
              'scope': f"Surfaces reconstructed from the {sid} label volume", 'parts': [p for p, _ in parts], 'concepts': concepts,
              'chunks': chunks, 'triangles': sum(p['indexCount'] // 3 for p, _ in parts),
              # Marching-cubes surfaces are dense and smooth, so they tolerate stronger simplification than the reference meshes.
-             'simplify': {'ratio': .12, 'error': .003}, 'gzipOnly': True}
+             'simplify': {'ratio': .12, 'error': .003}, 'gzipOnly': True,
+             # Voxel (i, j, k) of the study sits at ((-i·sx + o0), (k·sz + o1), (j·sy + o2)) / 1000 in the scene, so slices line up exactly.
+             'volume': {'offset': offset.round(4).tolist(), 'spacing': list(spacing), 'shape': study['shape']}}
     if study.get('groups'):
         # Muscles wrapping the head would hide the brain, so that group starts switched off.
         model['groups'] = [{**g, 'hidden': True} if g['id'] == 'muscles' else g for g in study['groups']]

@@ -19,7 +19,7 @@ export const SYSTEMS: {id:SystemId;name:string;color:string;description:string}[
 /** color and group are set on models reconstructed from slice studies; group replaces system for visibility when the model defines groups. */
 export interface Part {id:string;name:string;conceptId:string;system:SystemId;color?:[number,number,number];group?:string;generated?:boolean;chunk:number;positions:number;normals:number;indices:number;vertexCount:number;indexCount:number;bounds:[number[],number[]]}
 export interface Concept {id:string;name:string;elements:string[]}
-export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;study?:string;modality?:'CT'|'MR';groups?:{id:string;name:string;hidden?:boolean}[];parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
+export interface Atlas {version:string;sex?:'male';source?:string;scope?:string;study?:string;modality?:'CT'|'MR';groups?:{id:string;name:string;hidden?:boolean}[];volume?:{offset:[number,number,number];spacing:[number,number,number];shape:[number,number,number]};parts:Part[];concepts:Concept[];chunks:{url:string;bytes:number;gzip?:string;gzipBytes?:number}[];triangles:number}
 export type View = 'three-quarter'|'front'|'back'|'side'|'inferior';
 export type SliceAxis = 'axial'|'coronal'|'sagittal';
 export interface Slice {axis:SliceAxis;position:number}
@@ -30,7 +30,9 @@ export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[numbe
  {id:'coronal',name:'Coronal',coordinate:2,normal:[0,0,1],view:'front',ends:['Posterior','Anterior']},
  {id:'sagittal',name:'Sagittal',coordinate:0,normal:[1,0,0],view:'side',ends:['Right','Left']},
 ];
-export interface SceneState {inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
+/** An image slice drawn on the cutting plane of a reconstructed study model; corners are TL, TR, BL, BR in scene metres. */
+export interface SliceImage {canvas:HTMLCanvasElement;corners:[number,number,number][];version:number}
+export interface SceneState {sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
 /** The reference body, and surface models reconstructed from each slice study's labels (built by scripts/build-study-meshes.py). */
 export const MODELS=[{id:'reference',name:'Reference body (BodyParts3D)',url:'/models/atlas.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'}] as const;
 export type ModelId=typeof MODELS[number]['id'];

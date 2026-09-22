@@ -12,6 +12,7 @@ An interactive anatomy explorer for the browser: a 3D model of the adult male bo
 - Isolate a structure, or explode the body into a spaced inventory of every piece.
 - Slice the body along axial, coronal, and sagittal planes as filled cross-sections.
 - Switch to 3D models reconstructed from the CT and MRI studies, and jump between a structure in 3D and its slices.
+- Slicing a reconstructed model shows the real CT or MRI image on the cut, in sync with the 2D CT and MRI views.
 
 **CT radioanatomy**
 - Two real CT studies: chest to pelvis, and head and neck.
