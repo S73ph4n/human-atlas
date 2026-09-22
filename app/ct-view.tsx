@@ -1,13 +1,14 @@
 import {useEffect,useMemo,useRef} from 'react';
 import {PointerTap} from './pointer-tap';
-import {extractPlane,labelColors,planeSize,type CtVolume} from './ct';
-import type {SliceAxis,SystemId} from './anatomy';
-interface Props {volume:CtVolume;axis:SliceAxis;index:number;table:Uint8Array;overlay:boolean;opacity:number;systems:SystemId[];selected:number|null;onSelect:(id:number)=>void;onStep:(delta:number)=>void}
+import {extractPlane,labelColors,planeSize,type CtImage,type CtVolume} from './ct';
+import type {SliceAxis} from './anatomy';
+/** shown[id] is 1 for labels drawn in the overlay. */
+interface Props {volume:CtVolume;image:CtImage;axis:SliceAxis;index:number;table:Uint8Array;overlay:boolean;opacity:number;shown:Uint8Array;selected:number|null;onSelect:(id:number)=>void;onStep:(delta:number)=>void}
 const SELECTED=[111,207,191];
-export default function CtView({volume,axis,index,table,overlay,opacity,systems,selected,onSelect,onStep}:Props){
+export default function CtView({volume,image,axis,index,table,overlay,opacity,shown,selected,onSelect,onStep}:Props){
  const host=useRef<HTMLDivElement>(null),canvas=useRef<HTMLCanvasElement>(null),hover=useRef<HTMLDivElement>(null);
  const [w,h]=planeSize(volume.manifest.shape,axis);
- const plane=useMemo(()=>{const grey=document.createElement('canvas'),labels=document.createElement('canvas');grey.width=labels.width=w;grey.height=labels.height=h;return {grey,labels,pixels:new ImageData(w,h),ids:new Uint8Array(w*h)};},[w,h]);
+ const plane=useMemo(()=>{const grey=document.createElement('canvas'),labels=document.createElement('canvas');grey.width=labels.width=w;grey.height=labels.height=h;return {grey,labels,pixels:new ImageData(w,h),ids:new Uint16Array(w*h)};},[w,h]);
  const colors=useMemo(()=>labelColors(volume.manifest.labels),[volume]);
  const names=useMemo(()=>new Map(volume.manifest.labels.map(l=>[l.id,l])),[volume]);
  const view=useRef({zoom:1,x:0,y:0}),draw=useRef(()=>{}),handlers=useRef({onSelect,onStep});handlers.current={onSelect,onStep};
@@ -18,14 +19,14 @@ export default function CtView({volume,axis,index,table,overlay,opacity,systems,
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(plane.grey,ox,oy,w*scale,h*scale);ctx.imageSmoothingEnabled=false;ctx.drawImage(plane.labels,ox,oy,w*scale,h*scale);
  };
  // Greyscale slice
- useEffect(()=>{extractPlane(volume,axis,index,table,plane.pixels.data,plane.ids);plane.grey.getContext('2d')!.putImageData(plane.pixels,0,0);},[volume,axis,index,table,plane]);
+ useEffect(()=>{extractPlane(volume,image,axis,index,table,plane.pixels.data,plane.ids);plane.grey.getContext('2d')!.putImageData(plane.pixels,0,0);},[volume,image,axis,index,table,plane]);
  // Label overlay: translucent fill plus a stronger boundary; the selection stays visible even with the overlay off.
  useEffect(()=>{
-  const out=new ImageData(w,h),d=out.data,ids=plane.ids,shown=new Uint8Array(256);names.forEach(l=>{shown[l.id]=overlay&&systems.includes(l.system)?1:0;});
-  for(let p=0;p<ids.length;p++){const id=ids[p];if(!id)continue;const isSelected=id===selected;if(!isSelected&&!shown[id])continue;const col=p%w,edge=(col>0&&ids[p-1]!==id)||(col<w-1&&ids[p+1]!==id)||(p>=w&&ids[p-w]!==id)||(p+w<ids.length&&ids[p+w]!==id);
+  const out=new ImageData(w,h),d=out.data,ids=plane.ids;
+  for(let p=0;p<ids.length;p++){const id=ids[p];if(!id)continue;const isSelected=id===selected;if(!isSelected&&!(overlay&&shown[id]))continue;const col=p%w,edge=(col>0&&ids[p-1]!==id)||(col<w-1&&ids[p+1]!==id)||(p>=w&&ids[p-w]!==id)||(p+w<ids.length&&ids[p+w]!==id);
    const rgb=isSelected?SELECTED:[colors[id*3],colors[id*3+1],colors[id*3+2]];d[p*4]=rgb[0];d[p*4+1]=rgb[1];d[p*4+2]=rgb[2];d[p*4+3]=Math.round(255*Math.min(1,isSelected?(edge?1:.55):edge?opacity+.4:opacity));}
   plane.labels.getContext('2d')!.putImageData(out,0,0);draw.current();
- },[volume,axis,index,table,plane,overlay,opacity,systems,selected,colors,names,w,h]);
+ },[volume,image,axis,index,table,plane,overlay,opacity,shown,selected,colors,w,h]);
  useEffect(()=>{view.current={zoom:1,x:0,y:0};draw.current();},[axis,volume]);
  useEffect(()=>{
   const c=canvas.current!,el=host.current!,tap=new PointerTap(),pointers=new Map<number,{x:number;y:number}>();let pinch=0;

@@ -27,6 +27,16 @@ Adaptations: reoriented to RAS voxel order; cropped to the body, with the scanne
 
 The head and neck study `s0777` is cropped from a contrast-enhanced whole-body trauma CT of an adult male, keeping the region from the third thoracic vertebra to the vertex. Intensities are stored as 16-bit HU + 1024 (unchanged values) so narrow windows such as brain keep full precision. It has 115 labels: 47 non-empty dataset labels and 68 labels generated for this viewer with the TotalSegmentator model (https://github.com/wasserth/TotalSegmentator, Apache 2.0) subtasks `head_glands_cavities`, `head_muscles`, `headneck_bones_vessels`, `headneck_muscles`, and `craniofacial_structures` (run on a head-only crop, then placed back in the full grid). Generated labels are drawn over dataset labels (for example, the mandible over the dataset skull), labels under 30 voxels are dropped, and generated labels are marked in the manifest. They are model predictions that have not been checked by an expert. The scan shows dental-filling streak artefacts and what appears to be a cervical collar.
 
+## MRI brain atlas
+
+All or portions of this licensed product (such portions are the "Software") have been obtained under license from The Brigham and Women's Hospital, Inc. and are subject to the following terms and conditions: the [3D Slicer License](https://github.com/Slicer/Slicer/blob/main/License.txt).
+
+- Atlas: SPL/PNL/NAC Brain Atlas, release `brain-2017-01`, Open Anatomy Project (https://www.openanatomy.org/atlas-pages/atlas-spl-nac-brain.html), developed by the Surgical Planning Laboratory and the Psychiatry Neuroimaging Laboratory, Brigham and Women's Hospital, with support from NIH grants P41 EB015902, P41 RR013218 and R01 MH050740.
+- Reference: http://www.spl.harvard.edu/publications/item/view/1265
+- Download: https://www.openanatomy.org/atlases/nac/brain-2017-01.zip
+
+This is a modified version, not the original atlas: the 1 mm T1- and T2-weighted MRI and the label map were cropped to the labelled head, reoriented to RAS, the MRI intensities robustly rescaled to 8 bits per series, and the 311 named label values renumbered; names and hierarchy come from the atlas's `atlasStructure.json`, cerebellar lobule codes are expanded into readable names, and the viewer's region groups are curated for this interface. The atlas represents one healthy volunteer. It is for education and research only and not for clinical use; the Brigham and Women's Hospital does not endorse this application. The license notice is also shipped with the data in `public/mri/spl-brain/LICENSE.txt`.
+
 ## Historical assets (not included in the current release)
 
 Earlier repository revisions included female reference anatomy: Kristen Browne and Heidi Schlehlein, Human Reference Atlas / HuBMAP, *3D Reference Organ Set for Female v1.5* (2023). CC BY 4.0. Geometry adapted for this viewer.
