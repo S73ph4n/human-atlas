@@ -30,6 +30,12 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 - Coloured label overlay: hover to name a structure, tap for details, search to jump to it. The same facts as in 3D appear beside the label.
 - Brain structures are grouped by region (lobes, thalamus, cerebellum, …) and show their place in the anatomical hierarchy.
 
+**Quiz**
+- Radioanatomy practice on any CT or MRI study: an unlabelled slice, an arrow, and four names. Keys `1`–`4` answer, `Enter` moves on.
+- Questions come from the study's own labels, all of them, on any slice where the structure appears — not only its widest one. The arrow points at the deepest interior pixel, so an imprecise boundary never makes a question unfair.
+- The three wrong answers are structures of the same region or system, or the nearest neighbours, so they are worth ruling out.
+- Answering reveals the structure on the image with its summary; from there one click opens it labelled in 2D.
+
 ## Install and run
 
 You need [Node.js](https://nodejs.org) 22.13 or newer and Git. No accounts or API keys.
@@ -63,6 +69,7 @@ npx vite preview      # serve dist/ at http://localhost:4173
 | Inspect | Tap a structure | Tap a labelled structure |
 | Hide selected structure | `H` | — |
 | Search | `/` | `/` |
+| Answer a quiz question | — | `1`–`4`, then `Enter` for the next |
 
 ## Data and credits
 
@@ -85,6 +92,8 @@ This is an educational tool, not a diagnostic or surgical one.
 npm run check                            # TypeScript
 node scripts/validate-atlas.mjs          # 3D data integrity
 node scripts/validate-interactions.mjs   # tap and drag handling
+node scripts/validate-facts.mjs          # structure facts and their coverage
+node scripts/validate-quiz.mjs           # quiz questions: every arrow lands inside its answer
 ```
 
 **Adding a CT study.** Download a subject folder from the TotalSegmentator dataset (it contains `ct.nii.gz` and `segmentations/`), then:

@@ -119,3 +119,20 @@ body:has(.detail-sheet) .ct-view{right:420px}
 /* Wikipedia facts in the detail sheet: a definition list of infobox fields, then the article link. */
 .fact-block{display:flex;flex-direction:column;gap:10px}.fact-rows{margin:0;display:grid;gap:9px;font-size:12px;line-height:1.55}.fact-rows>div{display:grid;grid-template-columns:74px 1fr;gap:10px;align-items:baseline}.fact-rows dt{color:#87929d}.fact-rows dd{margin:0;color:#475665;overflow-wrap:anywhere}.fact-block .source-link{margin-top:0}
 @media(max-width:767px){.fact-rows{font-size:13px}.fact-rows>div{grid-template-columns:70px 1fr}}
+
+/* Radioanatomy quiz: the question sits where the slice controls do, above the dock. */
+.quiz-panel{position:absolute;right:30px;top:50%;transform:translateY(-50%);width:302px;border-radius:6px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:13px;z-index:20}
+.quiz-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.quiz-prompt{font-family:inherit;font-size:17px;font-weight:400;line-height:1.35;letter-spacing:-.3px;margin:0;color:#26313c}
+.quiz-choices{display:flex;flex-direction:column;gap:6px}
+.quiz-choice{display:flex;align-items:center;gap:10px;text-align:left;font-size:13px;line-height:1.4;min-height:44px;padding:9px 11px;border:1px solid #18253618;border-radius:5px;color:#3c4956;white-space:normal}
+.quiz-choice span{flex:1;text-transform:capitalize}
+.quiz-choice kbd{font-size:11px;color:#8b95a0;border:1px solid #18253620;border-radius:3px;padding:1px 5px;flex-shrink:0}
+.quiz-choice:disabled{opacity:1}
+.quiz-choice.right{border-color:#4b8f7f80;background:#4b8f7f1a;color:#2c5f53}
+.quiz-choice.wrong{border-color:#b0605580;background:#b060551a;color:#8a453c}
+.quiz-actions{display:flex;flex-direction:column;gap:5px;padding-top:9px;border-top:1px solid #18253618}
+.quiz-actions .primary-action kbd{font-size:11px;border:1px solid #ffffff40;border-radius:3px;padding:0 4px;margin-left:auto;opacity:.7}
+.quiz-panel .context-note{margin:0}
+@media(max-width:767px){.quiz-panel{right:12px;left:12px;top:auto;bottom:calc(139px + env(safe-area-inset-bottom));transform:none;width:auto;padding:14px;gap:10px;background:#fffffff5}.quiz-prompt{font-size:15px}.quiz-choice{font-size:14px}}
+.quiz-summary{font-size:12px;line-height:1.6;color:#66727f;margin:0;display:-webkit-box;-webkit-line-clamp:4;line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
