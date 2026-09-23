@@ -115,3 +115,7 @@ body:has(.detail-sheet) .ct-view{right:420px}
 .model-select{width:100%;margin-top:14px}.model-select select{height:36px;font-size:12px;color:#26313c;border-color:#18253620;background:#ffffff}
 @media(max-width:767px){.model-select select{height:44px;font-size:14px}}
 @media(max-width:360px){.identity-meta{padding-top:4px}h1{font-size:20px}.top-actions .mode-switch button{height:30px;min-height:30px;padding:0 6px}}
+
+/* Wikipedia facts in the detail sheet: a definition list of infobox fields, then the article link. */
+.fact-block{display:flex;flex-direction:column;gap:10px}.fact-rows{margin:0;display:grid;gap:9px;font-size:12px;line-height:1.55}.fact-rows>div{display:grid;grid-template-columns:74px 1fr;gap:10px;align-items:baseline}.fact-rows dt{color:#87929d}.fact-rows dd{margin:0;color:#475665;overflow-wrap:anywhere}.fact-block .source-link{margin-top:0}
+@media(max-width:767px){.fact-rows{font-size:13px}.fact-rows>div{grid-template-columns:70px 1fr}}

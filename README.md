@@ -20,14 +20,14 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 | MRI · Knee atlas | Reconstructed from the labels | 48 expert-labelled structures |
 
 **3D**
-- Orbit, zoom, and tap any structure to read about it.
+- Orbit, zoom, and tap any structure to read about it: a Wikipedia summary, its Latin name, and what supplies it (artery, vein, nerve), with origin, insertion and action for muscles.
 - Turn systems or brain regions on and off, or hide single structures to see what lies beneath.
 - Isolate a structure, or explode the body into a spaced inventory of every piece.
 - Slice along axial, coronal, and sagittal planes. On CT and MRI studies the real image appears on the cut, inside the 3D anatomy.
 
 **2D**
 - Scroll through slices in all three planes, with soft-tissue, lung, bone, and brain windows for CT and T1/T2 for MRI.
-- Coloured label overlay: hover to name a structure, tap for details, search to jump to it.
+- Coloured label overlay: hover to name a structure, tap for details, search to jump to it. The same facts as in 3D appear beside the label.
 - Brain structures are grouped by region (lobes, thalamus, cerebellum, …) and show their place in the anatomical hierarchy.
 
 ## Install and run
@@ -71,6 +71,7 @@ npx vite preview      # serve dist/ at http://localhost:4173
 - **Female reference body:** [HRA 3D Reference Organ Set for Female v1.5](https://doi.org/10.48539/HBM352.BTSQ.586), CC BY 4.0.
 - **Brain, knee and inner ear atlases:** [SPL atlases](https://www.openanatomy.org/atlas-pages/) from the Open Anatomy Project, obtained under license from The Brigham and Women's Hospital, Inc. and subject to the [3D Slicer License](https://github.com/Slicer/Slicer/blob/main/License.txt). The versions here are modified (resampled, cropped, reoriented, rescaled, renumbered).
 - **Abdominal MRI:** case amos_0590 of [AMOS](https://zenodo.org/records/7262581), CC BY-SA 4.0; its adapted files are shared under the same license.
+- **Structure facts:** summaries and anatomy infobox fields from [English Wikipedia](https://en.wikipedia.org), CC BY-SA 4.0, reached through [Wikidata](https://www.wikidata.org) identifiers (CC0). Matching is automatic: a structure may be described by the article on a broader one.
 
 Full credits and a description of every adaptation are in [ATTRIBUTION.md](public/ATTRIBUTION.md).
 
@@ -99,8 +100,10 @@ Use `--bits 16` for studies read with narrow windows such as brain, and `--gener
 
 **Rebuilding the reconstructed 3D models.** After converting a study, run `pip install numpy scipy scikit-image`, then `python scripts/build-study-meshes.py public/ct/<subject>/ct.json` (or `public/mri/spl-brain/study.json`), `node scripts/optimize-anatomy.mjs studies/<id>.json` and `node scripts/compress-models.mjs studies/<id>.json`, and list the model in `MODELS` in `app/anatomy.ts`.
 
+**Rebuilding the structure facts.** `python scripts/build-facts.py [dataset …] [--report]` rewrites `public/facts/<dataset>.json` from Wikidata and Wikipedia; `--report` lists the structures that stayed unmatched, which is how the synonym table in the script grows. Responses are cached under `work/facts-cache`, so re-runs are free; delete that folder to refresh from the live sources. No key is needed, but the public Wikidata endpoint is rate-limited and a full run takes a while.
+
 **Rebuilding the 3D geometry** is optional. From the BodyParts3D OBJ archive and metadata tables, run `scripts/convert-anatomy.py`, then `node scripts/optimize-anatomy.mjs` and `node scripts/compress-models.mjs`.
 
 ## License
 
-The application code is under the [MIT License](LICENSE). The data keep their own licenses: CC BY 4.0 (BodyParts3D, HRA, TotalSegmentator), the 3D Slicer License (SPL atlases), and CC BY-SA 4.0 (AMOS). Keep their notices when redistributing them.
+The application code is under the [MIT License](LICENSE). The data keep their own licenses: CC BY 4.0 (BodyParts3D, HRA, TotalSegmentator), the 3D Slicer License (SPL atlases), and CC BY-SA 4.0 (AMOS and the Wikipedia-derived facts). Keep their notices when redistributing them.

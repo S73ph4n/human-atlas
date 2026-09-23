@@ -66,3 +66,14 @@ Restored from an earlier revision of this repository (commit e6743fa): Kristen B
 Adaptations: translated native meter/Y-up coordinates onto the stage, coincident vertices welded and source normals averaged, geometry simplified with a 0.2% per-structure relative error bound, and normals quantized. Colors and display systems are curated for this interface. All 888 source meshes are represented, with 1,073 source nodes available as selectable individual or compound concepts.
 
 This is a reference assembly with whole-body surface and selected organs, including female reproductive anatomy. Its skeleton and muscle coverage is partial. It is not a complete model of every human structure or a single-person scan. Eight placenta/umbilical structures are classified under Pregnancy reference and hidden by default.
+
+## Structure facts (Wikipedia and Wikidata)
+
+`public/facts/` holds one file per dataset with, for each structure, a short summary and the fields of the anatomy infobox (Latin name, origin, insertion, action, artery, vein, nerve, lymph, …) of an English Wikipedia article, plus the Wikidata item both were reached through. Built by `scripts/build-facts.py`.
+
+- Wikipedia text: © its authors, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Each entry keeps the title of the article it came from and the viewer links to it, where the authors and the full text are.
+- Wikidata: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), used for the identifiers and the links between them.
+
+How a structure is matched: the reference bodies carry FMA and UBERON identifiers, which Wikidata indexes (properties P1402 and P1554); study labels carry only a name, matched against Wikidata labels and aliases of items that have one of those identifiers, through a small table of synonyms and name variants in the script. A structure whose own item has no article borrows the article of the nearest parent (subclass of, part of) that has one, so `right deep cervical artery` reaches *Deep cervical artery* and `T9 vertebra` reaches *Thoracic vertebrae*; the viewer marks those as describing the general structure.
+
+Adaptations: summaries are the article's first paragraphs as plain text, trimmed at a sentence boundary to about 420 characters; infobox values are stripped of wiki markup, references and templates and trimmed to 180 characters. Nothing is rewritten. Matching is automatic and not reviewed by an expert: a structure can be matched to a broader article, and the facts describe typical anatomy rather than the individual in the study.
