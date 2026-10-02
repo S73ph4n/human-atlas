@@ -166,3 +166,8 @@ body:has(.settings-panel) .quiz-panel{visibility:hidden}
 .ct-tag{position:absolute;top:8px;left:8px;z-index:2;pointer-events:none;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums;color:#233644;background:#ffffffe0;padding:3px 7px 3px 6px;border-radius:5px;border-left:3px solid var(--plane)}
 .slice-axes button.plane-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--plane);margin-right:5px;flex:none}
 .slice-axes.ct-tools{flex:0 0 auto;margin:0 auto 0 6px}.slice-axes.ct-tools button{flex:none;padding:0 7px}
+/* Settings: the language row above the quiz groups, set apart by a small section label. */
+.settings-section{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7f8c98;margin:16px 0 0;padding:0 5px}
+/* French names read as sentences, not titles: only their first letter is raised (every one of these is a block or flex item). */
+html[lang=fr] :is(.part-hover,.structure-title,.search-result-name,.hidden-item span,.quiz-choice span){text-transform:none}
+html[lang=fr] :is(.part-hover,.structure-title,.search-result-name,.hidden-item span,.quiz-choice span)::first-letter{text-transform:uppercase}

@@ -37,6 +37,10 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 - Answering reveals the structure on the image with its summary; from there one click opens it labelled in 2D.
 - **Settings** (the sliders button beside the search box) narrow the drill: the planes it cuts on, the types of structure it asks about — bones, vessels, organs, or a study's own regions — and whether labels a model generated are fair game. Both the answer and the three wrong ones come from the types you leave on, and your choices are remembered between visits.
 
+**Languages**
+- English and French. The app follows the browser's language; Settings switch it, and the choice is remembered.
+- In French, structure names, the quiz, and the interface are translated, and summaries come from French Wikipedia when an article exists (English otherwise). Infobox facts are shown only where every item has a French name.
+
 ## Install and run
 
 You need [Node.js](https://nodejs.org) 22.13 or newer and Git. No accounts or API keys.
@@ -95,6 +99,7 @@ node scripts/validate-atlas.mjs          # 3D data integrity
 node scripts/validate-interactions.mjs   # tap and drag handling
 node scripts/validate-facts.mjs          # structure facts and their coverage
 node scripts/validate-quiz.mjs           # quiz questions: arrows, answers, and the settings that narrow them
+node scripts/validate-i18n.mjs           # every interface string and structure name has a French translation
 ```
 
 **Adding a CT study.** Download a subject folder from the TotalSegmentator dataset (it contains `ct.nii.gz` and `segmentations/`), then:
@@ -110,7 +115,9 @@ Use `--bits 16` for studies read with narrow windows such as brain, and `--gener
 
 **Rebuilding the reconstructed 3D models.** After converting a study, run `pip install numpy scipy scikit-image`, then `python scripts/build-study-meshes.py public/ct/<subject>/ct.json` (or `public/mri/spl-brain/study.json`), `node scripts/optimize-anatomy.mjs studies/<id>.json` and `node scripts/compress-models.mjs studies/<id>.json`, and list the model in `MODELS` in `app/anatomy.ts`.
 
-**Rebuilding the structure facts.** `python scripts/build-facts.py [dataset …] [--report]` rewrites `public/facts/<dataset>.json` from Wikidata and Wikipedia; `--report` lists the structures that stayed unmatched, which is how the synonym table in the script grows. Responses are cached under `work/facts-cache`, so re-runs are free; delete that folder to refresh from the live sources. No key is needed, but the public Wikidata endpoint is rate-limited and a full run takes a while.
+**Rebuilding the structure facts.** `python scripts/build-facts.py [dataset …] [--report]` rewrites `public/facts/<dataset>.json` from Wikidata and Wikipedia; `--report` lists the structures that stayed unmatched, which is how the synonym table in the script grows. Responses are cached under `work/facts-cache`, so re-runs are free; delete that folder to refresh from the live sources. No key is needed, but the public Wikidata endpoint is rate-limited and a full run takes a while. Then `python scripts/build-facts-fr.py [dataset …]` writes `public/facts/<dataset>.fr.json`, the French Wikipedia summaries of the same articles, reached through their language links.
+
+**Translations.** Interface strings are written in English and passed through `t()`; their French lives in the table in `app/i18n.ts`. Structure, group and label names are translated in `public/i18n/names.fr.json`, keyed by the lowercased English name. A new string or a new study shows in English until it gets an entry; `node scripts/validate-i18n.mjs` lists what is missing.
 
 **Rebuilding the 3D geometry** is optional. From the BodyParts3D OBJ archive and metadata tables, run `scripts/convert-anatomy.py`, then `node scripts/optimize-anatomy.mjs` and `node scripts/compress-models.mjs`.
 

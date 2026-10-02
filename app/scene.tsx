@@ -9,10 +9,11 @@ import {PointerTap} from './pointer-tap';
 import {SLICE_AXES,SYSTEMS,groupOf,type Atlas,type SceneState,type SystemId} from './anatomy';
 // Cross-sections paint enclosing tissues first so the structures inside them stay on top.
 const CAP_ORDER:SystemId[]=['integumentary','connective','muscular','respiratory','digestive','urinary','reproductive','endocrine','lymphatic','cardiac','skeletal','sensory','nervous','venous','arterial'];
-interface Props {atlas:Atlas;state:SceneState;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
-export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:Props){
- const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect);
- latest.current=state;select.current=onSelect;
+/** Errors are reported in English and translated where they are shown; label and nameOf localise the canvas and its hover names. */
+interface Props {atlas:Atlas;state:SceneState;label?:string;nameOf?:(name:string)=>string;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
+export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgress,onError}:Props){
+ const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),naming=useRef(nameOf);
+ latest.current=state;select.current=onSelect;naming.current=nameOf;
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
   let lastState:SceneState|null=null;
@@ -142,7 +143,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
    atlas.parts.forEach((p,i)=>{const mesh=pickers[i],order=CAP_ORDER.indexOf(p.system);if(!mesh||data[i*4+3]<.5||order<bestOrder||!bounds[i].containsPoint(slicePoint))return;const size=bounds[i].getSize(hitPoint),volume=size.x*size.y*size.z;if(order===bestOrder&&volume>=bestVolume)return;if(probe.intersectObject(mesh,false).length%2===0)return;best=i;bestOrder=order;bestVolume=volume;});
    pickerMaterial.side=T.FrontSide;return best;
   };
-  const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);const slicing=!!latest.current.slice&&ready;if(e.buttons||(amount<.5&&!slicing)||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=slicing?partAtSlice(e.clientX,e.clientY):findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
+  const move=(e:PointerEvent)=>{tap.move(e.pointerId,e.clientX,e.clientY);const slicing=!!latest.current.slice&&ready;if(e.buttons||(amount<.5&&!slicing)||e.pointerType==='touch'){hover.hidden=true;return;}const rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,index=slicing?partAtSlice(e.clientX,e.clientY):findTarget(x,y,12);hover.hidden=index<0;renderer.domElement.style.cursor=index<0?'grab':'pointer';if(index>=0){hover.textContent=naming.current?.(atlas.parts[index].name)??atlas.parts[index].name;hover.style.left=`${Math.max(8,Math.min(x+14,el.clientWidth-260))}px`;hover.style.top=`${Math.max(8,Math.min(y+18,el.clientHeight-55))}px`;}};
   const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
   const up=(e:PointerEvent)=>{
    const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap||!ready)return;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
@@ -202,5 +203,6 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
   return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();partTexture.dispose();selectionTexture.dispose();imageTexture?.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
+ useEffect(()=>{if(label)host.current?.querySelector('canvas')?.setAttribute('aria-label',label);},[label,atlas]);
  return <div className="scene" ref={host}/>;
 }

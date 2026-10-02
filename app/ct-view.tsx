@@ -5,7 +5,7 @@ import type {SliceAxis} from './anatomy';
 /** shown[id] is 1 for labels drawn in the overlay. marker points at a structure without naming it (quiz), and
  *  quiet withholds the names the viewer would otherwise reveal on hover or on tap. cursor is the shared 3D point on this
  *  plane (image col, row); with onPoint set it is drawn as a reticle that taps and drags move. tag names the pane. */
-interface Props {volume:CtVolume;image:CtImage;axis:SliceAxis;index:number;table:Uint8Array;overlay:boolean;opacity:number;shown:Uint8Array;selected:number|null;marker?:{axis:SliceAxis;index:number;tip:[number,number];tail:[number,number]}|null;quiet?:boolean;cursor?:[number,number]|null;tag?:string;active?:boolean;className?:string;onSelect:(id:number)=>void;onStep:(delta:number)=>void;onPoint?:(col:number,row:number)=>void;onActivate?:()=>void}
+interface Props {volume:CtVolume;image:CtImage;axis:SliceAxis;index:number;table:Uint8Array;overlay:boolean;opacity:number;shown:Uint8Array;selected:number|null;marker?:{axis:SliceAxis;index:number;tip:[number,number];tail:[number,number]}|null;quiet?:boolean;cursor?:[number,number]|null;tag?:string;active?:boolean;className?:string;label?:string;nameOf?:(name:string)=>string;onSelect:(id:number)=>void;onStep:(delta:number)=>void;onPoint?:(col:number,row:number)=>void;onActivate?:()=>void}
 const SELECTED=[111,207,191];
 /** Each plane keeps one colour, on its pane and wherever its line crosses another pane. */
 export const PLANE_COLORS:Record<SliceAxis,string>={axial:'#e8695f',coronal:'#5cbf7a',sagittal:'#e6c34f'};
@@ -37,13 +37,13 @@ function drawArrow(ctx:CanvasRenderingContext2D,tipX:number,tipY:number,tailX:nu
  }
  ctx.restore();
 }
-export default function CtView({volume,image,axis,index,table,overlay,opacity,shown,selected,marker,quiet,cursor,tag,active,className='ct-view',onSelect,onStep,onPoint,onActivate}:Props){
+export default function CtView({volume,image,axis,index,table,overlay,opacity,shown,selected,marker,quiet,cursor,tag,active,className='ct-view',label,nameOf,onSelect,onStep,onPoint,onActivate}:Props){
  const host=useRef<HTMLDivElement>(null),canvas=useRef<HTMLCanvasElement>(null),hover=useRef<HTMLDivElement>(null);
  const [w,h]=planeSize(volume.manifest.shape,axis);
  const plane=useMemo(()=>{const grey=document.createElement('canvas'),labels=document.createElement('canvas');grey.width=labels.width=w;grey.height=labels.height=h;return {grey,labels,pixels:new ImageData(w,h),ids:new Uint16Array(w*h)};},[w,h]);
  const colors=useMemo(()=>labelColors(volume.manifest.labels),[volume]);
  const names=useMemo(()=>new Map(volume.manifest.labels.map(l=>[l.id,l])),[volume]);
- const view=useRef({zoom:1,x:0,y:0}),draw=useRef(()=>{}),handlers=useRef({onSelect,onStep,onPoint,onActivate}),silent=useRef(!!quiet),point=useRef(cursor);handlers.current={onSelect,onStep,onPoint,onActivate};silent.current=!!quiet;point.current=cursor;
+ const view=useRef({zoom:1,x:0,y:0}),draw=useRef(()=>{}),handlers=useRef({onSelect,onStep,onPoint,onActivate,nameOf}),silent=useRef(!!quiet),point=useRef(cursor);handlers.current={onSelect,onStep,onPoint,onActivate,nameOf};silent.current=!!quiet;point.current=cursor;
  draw.current=()=>{
   const c=canvas.current,el=host.current;if(!c||!el)return;const dpr=Math.min(devicePixelRatio,2),cw=el.clientWidth,ch=el.clientHeight;
   if(c.width!==Math.round(cw*dpr)||c.height!==Math.round(ch*dpr)){c.width=Math.round(cw*dpr);c.height=Math.round(ch*dpr);}
@@ -75,7 +75,7 @@ export default function CtView({volume,image,axis,index,table,overlay,opacity,sh
   // Which reticle lines sit under the pointer: grabbing one moves only its plane, grabbing the crossing moves both.
   const reticleAt=(clientX:number,clientY:number,reach:number)=>{const p=point.current;if(!p||!handlers.current.onPoint)return null;const {scale,ox,oy}=frame(),col=Math.abs(clientX-ox-(p[0]+.5)*scale)<=reach,row=Math.abs(clientY-oy-(p[1]+.5)*scale)<=reach;return col||row?{col,row}:null;};
   const zoomAt=(clientX:number,clientY:number,factor:number)=>{const r=el.getBoundingClientRect(),v=view.current,next=Math.min(12,Math.max(1,v.zoom*factor)),k=next/v.zoom,px=clientX-r.left-r.width/2,py=clientY-r.top-r.height/2;v.x=px-(px-v.x)*k;v.y=py-(py-v.y)*k;v.zoom=next;if(next===1){v.x=0;v.y=0;}draw.current();};
-  const showHover=(e:PointerEvent)=>{const box=hover.current!,id=e.pointerType==='touch'||e.buttons||silent.current?0:pixel(e.clientX,e.clientY),label=names.get(id),line=e.pointerType==='touch'?null:reticleAt(e.clientX,e.clientY,6);box.hidden=!label;c.style.cursor=line?(line.col&&line.row?'move':line.col?'ew-resize':'ns-resize'):label?'pointer':handlers.current.onPoint&&point.current?'crosshair':'grab';if(label){const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;box.textContent=label.name;box.style.left=`${Math.max(8,Math.min(x+14,r.width-260))}px`;box.style.top=`${Math.max(8,Math.min(y+18,r.height-45))}px`;}};
+  const showHover=(e:PointerEvent)=>{const box=hover.current!,id=e.pointerType==='touch'||e.buttons||silent.current?0:pixel(e.clientX,e.clientY),label=names.get(id),line=e.pointerType==='touch'?null:reticleAt(e.clientX,e.clientY,6);box.hidden=!label;c.style.cursor=line?(line.col&&line.row?'move':line.col?'ew-resize':'ns-resize'):label?'pointer':handlers.current.onPoint&&point.current?'crosshair':'grab';if(label){const r=el.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;box.textContent=handlers.current.nameOf?.(label.name)??label.name;box.style.left=`${Math.max(8,Math.min(x+14,r.width-260))}px`;box.style.top=`${Math.max(8,Math.min(y+18,r.height-45))}px`;}};
   // Wheel scrolls through slices as in radiology viewers; Ctrl or ⌘ with the wheel (and trackpad pinch) zooms.
   const wheel=(e:WheelEvent)=>{e.preventDefault();handlers.current.onActivate?.();if(e.ctrlKey||e.metaKey)zoomAt(e.clientX,e.clientY,Math.exp(-e.deltaY*.01));else if(Math.abs(e.deltaY)>=1)handlers.current.onStep(e.deltaY>0?-1:1);};
   // With a reticle, a drag moves it: from a line or with Shift always, and from anywhere while the image is not zoomed (zoomed, it pans).
@@ -96,5 +96,5 @@ export default function CtView({volume,image,axis,index,table,overlay,opacity,sh
   c.addEventListener('wheel',wheel,{passive:false});c.addEventListener('pointerdown',down);c.addEventListener('pointermove',move);c.addEventListener('pointerup',up);c.addEventListener('pointercancel',cancel);c.addEventListener('pointerleave',leave);c.addEventListener('dblclick',reset);
   return()=>{observer.disconnect();c.removeEventListener('wheel',wheel);c.removeEventListener('pointerdown',down);c.removeEventListener('pointermove',move);c.removeEventListener('pointerup',up);c.removeEventListener('pointercancel',cancel);c.removeEventListener('pointerleave',leave);c.removeEventListener('dblclick',reset);};
  },[plane,names,w,h]);
- return <div className={`${className} ${active?'active':''}`} ref={host} style={tag?{'--plane':PLANE_COLORS[axis]} as CSSProperties:undefined}>{tag&&<span className="ct-tag">{tag}</span>}<canvas ref={canvas} aria-label="CT slice. Scroll to move through slices, Ctrl or ⌘ and scroll to zoom, drag to pan when zoomed, and tap a labelled structure to inspect it."/><div className="part-hover" ref={hover} role="tooltip" hidden/></div>;
+ return <div className={`${className} ${active?'active':''}`} ref={host} style={tag?{'--plane':PLANE_COLORS[axis]} as CSSProperties:undefined}>{tag&&<span className="ct-tag">{tag}</span>}<canvas ref={canvas} aria-label={label??"CT slice. Scroll to move through slices, Ctrl or ⌘ and scroll to zoom, drag to pan when zoomed, and tap a labelled structure to inspect it."}/><div className="part-hover" ref={hover} role="tooltip" hidden/></div>;
 }

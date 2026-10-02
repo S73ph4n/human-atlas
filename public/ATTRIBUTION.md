@@ -69,7 +69,7 @@ This is a reference assembly with whole-body surface and selected organs, includ
 
 ## Structure facts (Wikipedia and Wikidata)
 
-`public/facts/` holds one file per dataset with, for each structure, a short summary and the fields of the anatomy infobox (Latin name, origin, insertion, action, artery, vein, nerve, lymph, …) of an English Wikipedia article, plus the Wikidata item both were reached through. Built by `scripts/build-facts.py`.
+`public/facts/` holds one file per dataset with, for each structure, a short summary and the fields of the anatomy infobox (Latin name, origin, insertion, action, artery, vein, nerve, lymph, …) of an English Wikipedia article, plus the Wikidata item both were reached through. Built by `scripts/build-facts.py`. The `<dataset>.fr.json` files hold the introductions of the French Wikipedia articles that the English ones link to, built by `scripts/build-facts-fr.py`; the same CC BY-SA 4.0 terms apply, and the viewer links to the French article.
 
 - Wikipedia text: © its authors, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Each entry keeps the title of the article it came from and the viewer links to it, where the authors and the full text are.
 - Wikidata: [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), used for the identifiers and the links between them.
