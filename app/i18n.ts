@@ -109,7 +109,7 @@ export const FR:Record<string,string>={
  // Dock
  'Open system layers':'Ouvrir les couches','CT plane':'Plan de coupe','Slice layout':'Disposition des coupes',
  'Show all three planes':'Afficher les trois plans','Show axial, coronal and sagittal together':'Afficher les coupes axiale, coronale et sagittale ensemble',
- 'Show reticle':'Afficher le réticule','Reticle: drag it or tap to move the point where the planes cross':'Réticule : faites-le glisser ou touchez l’image pour déplacer le point où les plans se croisent',
+ 'Show reticle':'Afficher le réticule','Reticle: where the three slice planes cross, shared with the 2D view; tap a slice to move it':'Réticule : là où les trois plans de coupe se croisent, partagé avec la vue 2D ; touchez une coupe pour le déplacer','Reticle: drag it or tap to move the point where the planes cross':'Réticule : faites-le glisser ou touchez l’image pour déplacer le point où les plans se croisent',
  '{plane} slice':'Coupe {plane}','MRI sequence':'Séquence IRM','{name}-weighted':'Pondération {name}','CT window':'Fenêtre TDM',
  'Window {width} / level {level} HU':'Fenêtre {width} / niveau {level} UH','Slice plane':'Plan de coupe','{plane} slice position':'Position de la coupe {plane}',
  '[ ] to step':'[ ] pour avancer','Explode anatomy':'Éclater l’anatomie','Assembled':'Assemblé','Every piece':'Toutes les pièces',

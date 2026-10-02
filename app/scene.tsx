@@ -7,14 +7,15 @@ import {createExplosionLayout} from './explosion-layout';
 import {decodeModelResponse} from './model-download';
 import {PointerTap} from './pointer-tap';
 import {ATTENUATION_SCALE} from './ct';
-import {SLICE_AXES,SYSTEMS,groupOf,type Atlas,type SceneState,type SystemId} from './anatomy';
+import {PLANE_COLORS,SLICE_AXES,SYSTEMS,groupOf,type Atlas,type SceneState,type SystemId} from './anatomy';
 // Cross-sections paint enclosing tissues first so the structures inside them stay on top.
 const CAP_ORDER:SystemId[]=['integumentary','connective','muscular','respiratory','digestive','urinary','reproductive','endocrine','lymphatic','cardiac','skeletal','sensory','nervous','venous','arterial'];
 /** Errors are reported in English and translated where they are shown; label and nameOf localise the canvas and its hover names. */
-interface Props {atlas:Atlas;state:SceneState;label?:string;nameOf?:(name:string)=>string;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
-export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgress,onError}:Props){
- const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),naming=useRef(nameOf);
- latest.current=state;select.current=onSelect;naming.current=nameOf;
+/** onPoint reports the voxel tapped on a study's slice image, so the reticle can move there as it does in 2D. */
+interface Props {atlas:Atlas;state:SceneState;label?:string;nameOf?:(name:string)=>string;onPoint?:(voxel:[number,number,number])=>void;onSelect:(id:string)=>void;onProgress:(n:number)=>void;onError:(s:string)=>void}
+export default function AnatomyScene({atlas,state,label,nameOf,onPoint,onSelect,onProgress,onError}:Props){
+ const host=useRef<HTMLDivElement>(null),latest=useRef(state),select=useRef(onSelect),naming=useRef(nameOf),pointing=useRef(onPoint);
+ latest.current=state;select.current=onSelect;naming.current=nameOf;pointing.current=onPoint;
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
   let lastState:SceneState|null=null,lastMove=0;
@@ -122,6 +123,21 @@ void main(){
   const projectionBox=new T.Mesh(new T.BoxGeometry(1,1,1),projectionMaterial);projectionBox.visible=false;projectionBox.frustumCulled=false;projectionBox.matrixAutoUpdate=false;projectionBox.renderOrder=2;scene.add(projectionBox);
   let projectionTexture:T.Data3DTexture|null=null,lastProjection:SceneState['projection']=null;
   const inverseBox=new T.Matrix4();
+  // Reticle: the three slice planes through the shared voxel, outlined across the study's volume in their 2D colours,
+  // and the point itself. Drawn over the anatomy so it stays visible inside the body.
+  const reticleGeometry=new T.BufferGeometry();reticleGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(3*2*4*3),3));
+  const reticleColors=new Float32Array(3*2*4*3);(['axial','coronal','sagittal'] as const).forEach((axis,a)=>{const c=new T.Color(PLANE_COLORS[axis]);for(let v=0;v<8;v++)reticleColors.set([c.r,c.g,c.b],(a*8+v)*3);});
+  reticleGeometry.setAttribute('color',new T.BufferAttribute(reticleColors,3));
+  const reticleMaterial=new T.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.7,depthTest:false,depthWrite:false,toneMapped:false});
+  const reticleLines=new T.LineSegments(reticleGeometry,reticleMaterial);reticleLines.renderOrder=700;reticleLines.frustumCulled=false;reticleLines.visible=false;scene.add(reticleLines);
+  const reticleDotGeometry=new T.BufferGeometry();reticleDotGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(3),3));
+  const reticleDotMaterial=new T.PointsMaterial({color:0xffffff,size:7,sizeAttenuation:false,depthTest:false,depthWrite:false,toneMapped:false});
+  reticleDotMaterial.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (distance(gl_PointCoord, vec2(0.5)) > 0.5) discard;');};
+  const reticleDot=new T.Points(reticleDotGeometry,reticleDotMaterial);reticleDot.renderOrder=701;reticleDot.frustumCulled=false;reticleDot.visible=false;scene.add(reticleDot);
+  materials.push(reticleMaterial,reticleDotMaterial);geometries.push(reticleGeometry,reticleDotGeometry);
+  let lastReticle='';
+  const toScene=(v:NonNullable<Atlas['volume']>,[i,j,k]:number[])=>new T.Vector3((-i*v.spacing[0]+v.offset[0])/1000,(k*v.spacing[2]+v.offset[1])/1000,(j*v.spacing[1]+v.offset[2])/1000);
+  const toVoxel=(v:NonNullable<Atlas['volume']>,p:T.Vector3):[number,number,number]=>[(v.offset[0]-p.x*1000)/v.spacing[0],(p.z*1000-v.offset[2])/v.spacing[1],(p.y*1000-v.offset[1])/v.spacing[2]];
   // μ of water at diagnostic energies is about 19 per metre. k = 0.22 puts a 30 cm abdomen near 0.7 before the 1.5 power,
   // which darkens soft tissue so the lungs and bone separate from it.
   const MU_WATER=19,COMPRESSION=.22;
@@ -165,11 +181,11 @@ void main(){
   const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(pixelRatio());camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
   const down=(e:PointerEvent)=>{hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
-  const probe=new T.Raycaster(),probeDirection=new T.Vector3(.31,.83,.47).normalize(),slicePoint=new T.Vector3(),slicePlane=new T.Plane();
+  let sliceHit=false;const probe=new T.Raycaster(),probeDirection=new T.Vector3(.31,.83,.47).normalize(),slicePoint=new T.Vector3(),slicePlane=new T.Plane();
   const partAtSlice=(clientX:number,clientY:number)=>{
    const s=latest.current.slice,axis=s&&SLICE_AXES.find(a=>a.id===s.axis);if(!s||!axis)return -1;const rect=renderer.domElement.getBoundingClientRect();
    pointer.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
-   slicePlane.normal.fromArray(axis.normal);slicePlane.constant=-s.position*axis.normal[axis.coordinate];if(!raycaster.ray.intersectPlane(slicePlane,slicePoint))return -1;
+   slicePlane.normal.fromArray(axis.normal);slicePlane.constant=-s.position*axis.normal[axis.coordinate];sliceHit=!!raycaster.ray.intersectPlane(slicePlane,slicePoint);if(!sliceHit)return -1;
    // A point is inside a closed mesh when a ray from it crosses the surface an odd number of times.
    let best=-1,bestOrder=-1,bestVolume=Infinity;pickerMaterial.side=T.DoubleSide;probe.set(slicePoint,probeDirection);
    atlas.parts.forEach((p,i)=>{const mesh=pickers[i],order=CAP_ORDER.indexOf(p.system);if(!mesh||data[i*4+3]<.5||order<bestOrder||!bounds[i].containsPoint(slicePoint))return;const size=bounds[i].getSize(hitPoint),volume=size.x*size.y*size.z;if(order===bestOrder&&volume>=bestVolume)return;if(probe.intersectObject(mesh,false).length%2===0)return;best=i;bestOrder=order;bestVolume=volume;});
@@ -179,7 +195,7 @@ void main(){
   const cancel=(e:PointerEvent)=>tap.cancel(e.pointerId);
   const up=(e:PointerEvent)=>{
    const validTap=tap.up(e.pointerId,e.clientX,e.clientY);if(!validTap||!ready)return;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
-   if(latest.current.slice){const found=partAtSlice(e.clientX,e.clientY);if(found>=0){hover.hidden=true;select.current(atlas.parts[found].id);}return;}
+   if(latest.current.slice){const found=partAtSlice(e.clientX,e.clientY);if(sliceHit&&latest.current.sliceImage&&atlas.volume)pointing.current?.(toVoxel(atlas.volume,slicePoint));if(found>=0){hover.hidden=true;select.current(atlas.parts[found].id);}return;}
    let nearest=Infinity,found=-1;const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);
    pickers.forEach((mesh,i)=>{if(!mesh||data[i*4+3]<.5||(hasSolid&&atlas.parts[i].system==='integumentary'))return;worldBox.copy(bounds[i]).translate(mesh.position);if(!raycaster.ray.intersectBox(worldBox,hitPoint))return;const hit=raycaster.intersectObject(mesh,false)[0];if(hit&&hit.distance<nearest){nearest=hit.distance;found=i;}});
    if(found<0&&amount>.45)found=findTarget(e.clientX-rect.left,e.clientY-rect.top,e.pointerType==='touch'?24:16);if(found>=0){hover.hidden=true;select.current(atlas.parts[found].id);}
@@ -213,6 +229,18 @@ void main(){
     const position=s.slice?.axis==='axial'?s.slice.position:null;if(position!==null&&lastSlicePosition!==null){const delta=position-lastSlicePosition;controls.target.y+=delta;camera.position.y+=delta;controls.update();}lastSlicePosition=position;}
    const image=s.slice?s.sliceImage:null,sliceView=`${!!s.slice}:${!!image}:${s.sliceAnatomy!==false}`;
    if(sliceView!==lastSliceView){normalMeshes.forEach(m=>m.visible=!s.slice||(!!image&&s.sliceAnatomy!==false));sliceObjects.forEach(o=>o.visible=!!s.slice&&!image);imagePlane.visible=!!image;lastSliceView=sliceView;dirty=true;}
+   const reticle=atlas.volume&&s.reticle&&amount<.05?s.reticle:null,reticleKey=reticle?reticle.join(','):'';
+   if(reticleKey!==lastReticle){
+    if(reticle){
+     const v=atlas.volume!,[X,Y,Z]=v.shape,lo=-.5,hx=X-.5,hy=Y-.5,hz=Z-.5,[x,y,z]=reticle,positions=reticleGeometry.attributes.position as T.BufferAttribute;
+     // Each plane is a rectangle across the volume at the reticle's index on that plane's axis (RAS voxels: z axial, y coronal, x sagittal).
+     const rect=(corners:number[][])=>corners.flatMap((c,i)=>[c,corners[(i+1)%4]]);
+     const edges=[...rect([[lo,lo,z],[hx,lo,z],[hx,hy,z],[lo,hy,z]]),...rect([[lo,y,lo],[hx,y,lo],[hx,y,hz],[lo,y,hz]]),...rect([[x,lo,lo],[x,hy,lo],[x,hy,hz],[x,lo,hz]])];
+     edges.forEach((voxel,i)=>{const p=toScene(v,voxel);positions.setXYZ(i,p.x,p.y,p.z);});positions.needsUpdate=true;
+     const dot=toScene(v,reticle);(reticleDotGeometry.attributes.position as T.BufferAttribute).setXYZ(0,dot.x,dot.y,dot.z);reticleDotGeometry.attributes.position.needsUpdate=true;
+    }
+    reticleLines.visible=reticleDot.visible=!!reticle;lastReticle=reticleKey;dirty=true;
+   }
    const projection=s.projection&&atlas.volume&&!s.slice?s.projection:null;
    if(projection!==lastProjection){
     projectionTexture?.dispose();projectionTexture=null;

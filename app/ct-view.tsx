@@ -1,14 +1,12 @@
 import {useEffect,useMemo,useRef,type CSSProperties} from 'react';
 import {PointerTap} from './pointer-tap';
 import {extractPlane,labelColors,planeSize,type CtImage,type CtVolume} from './ct';
-import type {SliceAxis} from './anatomy';
+import {PLANE_COLORS,type SliceAxis} from './anatomy';
 /** shown[id] is 1 for labels drawn in the overlay. marker points at a structure without naming it (quiz), and
  *  quiet withholds the names the viewer would otherwise reveal on hover or on tap. cursor is the shared 3D point on this
  *  plane (image col, row); with onPoint set it is drawn as a reticle that taps and drags move. tag names the pane. */
 interface Props {volume:CtVolume;image:CtImage;axis:SliceAxis;index:number;table:Uint8Array;overlay:boolean;opacity:number;shown:Uint8Array;selected:number|null;marker?:{axis:SliceAxis;index:number;tip:[number,number];tail:[number,number]}|null;quiet?:boolean;cursor?:[number,number]|null;tag?:string;active?:boolean;className?:string;label?:string;nameOf?:(name:string)=>string;onSelect:(id:number)=>void;onStep:(delta:number)=>void;onPoint?:(col:number,row:number)=>void;onActivate?:()=>void}
 const SELECTED=[111,207,191];
-/** Each plane keeps one colour, on its pane and wherever its line crosses another pane. */
-export const PLANE_COLORS:Record<SliceAxis,string>={axial:'#e8695f',coronal:'#5cbf7a',sagittal:'#e6c34f'};
 /** The planes a pane's reticle lines stand for: [vertical line, horizontal line]. */
 const RETICLE:Record<SliceAxis,[SliceAxis,SliceAxis]>={axial:['sagittal','coronal'],coronal:['sagittal','axial'],sagittal:['coronal','axial']};
 /** Reticle lines across the image, broken around the crossing so the point itself stays visible. */

@@ -26,6 +26,8 @@ export interface Atlas {version:string;sex?:'male'|'female';source?:string;scope
 export type View = 'three-quarter'|'front'|'back'|'side'|'inferior';
 export type SliceAxis = 'axial'|'coronal'|'sagittal';
 export interface Slice {axis:SliceAxis;position:number}
+/** Each plane keeps one colour: on its 2D pane, wherever its line crosses another pane, and on its outline in 3D. */
+export const PLANE_COLORS:Record<SliceAxis,string>={axial:'#e8695f',coronal:'#5cbf7a',sagittal:'#e6c34f'};
 // Model space is metres with +y superior, +z anterior and +x the body's left. Each normal points toward the aligned camera.
 // Cameras follow radiological convention: axial from the feet, coronal from the front, both with the body's left on screen right.
 export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[number,number,number];view:View;ends:[string,string]}[] = [
@@ -36,8 +38,9 @@ export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[numbe
 /** An image slice drawn on the cutting plane of a reconstructed study model; corners are TL, TR, BL, BR in scene metres. */
 export interface SliceImage {canvas:HTMLCanvasElement;corners:[number,number,number][];version:number}
 /** xray ghosts every structure that is not selected, so the selection shows through the body. projection replaces the
- *  anatomy with a radiograph computed through the study's CT, keeping the selection solid. */
-export interface SceneState {xray?:boolean;projection?:AttenuationVolume|null;sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
+ *  anatomy with a radiograph computed through the study's CT, keeping the selection solid. reticle is the voxel where
+ *  the three slice planes cross, shared with the 2D view, drawn as the planes' outlines through the study's volume. */
+export interface SceneState {xray?:boolean;projection?:AttenuationVolume|null;reticle?:[number,number,number]|null;sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
 /** The reference body, and surface models reconstructed from each slice study's labels (built by scripts/build-study-meshes.py). */
 export const MODELS=[{id:'reference',name:'Reference body · male (BodyParts3D)',url:'/models/atlas.json'},{id:'reference-female',name:'Reference body · female (HRA)',url:'/models/atlas-female.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-ear',name:'CT · Inner ear atlas',url:'/models/studies/spl-ear.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'},{id:'amos-0590',name:'MRI · Abdomen (AMOS)',url:'/models/studies/amos-0590.json'},{id:'spl-knee',name:'MRI · Knee atlas',url:'/models/studies/spl-knee.json'}] as const;
 export type ModelId=typeof MODELS[number]['id'];
