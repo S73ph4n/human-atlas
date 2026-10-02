@@ -34,7 +34,8 @@ export const SLICE_AXES:{id:SliceAxis;name:string;coordinate:0|1|2;normal:[numbe
 ];
 /** An image slice drawn on the cutting plane of a reconstructed study model; corners are TL, TR, BL, BR in scene metres. */
 export interface SliceImage {canvas:HTMLCanvasElement;corners:[number,number,number][];version:number}
-export interface SceneState {sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
+/** xray ghosts every structure that is not selected, so the selection shows through the body. */
+export interface SceneState {xray?:boolean;sliceImage?:SliceImage|null;sliceAnatomy?:boolean;inspectorOpen?:boolean;explode:number;visible:string[];selected:string[];hidden?:string[];slice?:Slice|null;isolate:boolean;view:View;rotate:boolean;reset:number}
 /** The reference body, and surface models reconstructed from each slice study's labels (built by scripts/build-study-meshes.py). */
 export const MODELS=[{id:'reference',name:'Reference body · male (BodyParts3D)',url:'/models/atlas.json'},{id:'reference-female',name:'Reference body · female (HRA)',url:'/models/atlas-female.json'},{id:'s0476',name:'CT · Chest – pelvis',url:'/models/studies/s0476.json'},{id:'s0777',name:'CT · Head & neck',url:'/models/studies/s0777.json'},{id:'spl-ear',name:'CT · Inner ear atlas',url:'/models/studies/spl-ear.json'},{id:'spl-brain',name:'MRI · Brain atlas',url:'/models/studies/spl-brain.json'},{id:'amos-0590',name:'MRI · Abdomen (AMOS)',url:'/models/studies/amos-0590.json'},{id:'spl-knee',name:'MRI · Knee atlas',url:'/models/studies/spl-knee.json'}] as const;
 export type ModelId=typeof MODELS[number]['id'];

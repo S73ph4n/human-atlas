@@ -41,7 +41,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
   // Reconstructed study models carry one colour per structure as a vertex attribute.
   const tinted=atlas.parts.some(p=>p.color);
   let packingWidth=1,packingHeight=1,lastSlice='',lastSlicePosition:number|null=null;
-  const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}};
+  const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}},xrayUniforms={xrayActive:{value:0}};let lastXray=false;
   // Image mode (reconstructed study models): the study's slice on the cutting plane, with the clipped anatomy around it.
   const imageGeometry=new T.BufferGeometry();imageGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(12),3));imageGeometry.setAttribute('uv',new T.BufferAttribute(new Float32Array([0,1,1,1,0,0,1,0]),2));imageGeometry.setIndex([0,2,1,1,2,3]);
   const imageMaterial=new T.MeshBasicMaterial({side:T.DoubleSide,toneMapped:false,alphaTest:.5}),imagePlane=new T.Mesh(imageGeometry,imageMaterial);imagePlane.visible=false;imagePlane.frustumCulled=false;
@@ -60,22 +60,30 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
    return best;
   };
   // userData.sliceThickness > 0 keeps only a slab around the slice; 0 removes the half-space facing the camera.
-  // userData.selectedOnly restricts a pass to the current selection.
+  // userData.selectedOnly restricts a pass to the current selection. userData.xrayRole splits the anatomy in X-ray mode:
+  // the lit pass (1) keeps only the selection, solid; the ghost pass (2) draws everything else.
   const patchShader=<M extends T.Material>(m:M):M=>{
    m.onBeforeCompile=shader=>{
-    shader.uniforms.partState={value:partTexture};shader.uniforms.selectionState={value:selectionTexture};shader.uniforms.stateWidth={value:width};Object.assign(shader.uniforms,sliceUniforms);shader.uniforms.sliceThickness={value:m.userData.sliceThickness??0};shader.uniforms.selectedOnly={value:m.userData.selectedOnly?1:0};
+    shader.uniforms.partState={value:partTexture};shader.uniforms.selectionState={value:selectionTexture};shader.uniforms.stateWidth={value:width};Object.assign(shader.uniforms,sliceUniforms);shader.uniforms.sliceThickness={value:m.userData.sliceThickness??0};shader.uniforms.selectedOnly={value:m.userData.selectedOnly?1:0};Object.assign(shader.uniforms,xrayUniforms);shader.uniforms.xrayRole={value:m.userData.xrayRole??0};
     shader.vertexShader='attribute float partIndex; uniform sampler2D partState; uniform sampler2D selectionState; uniform float stateWidth; varying float partVisible; varying float partSelected; varying vec3 anatomyPosition;\n'+shader.vertexShader;
     shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec2 stateUv = vec2((partIndex + 0.5) / stateWidth, 0.5); vec4 state = texture2D(partState, stateUv); transformed += state.xyz; partVisible = state.w; partSelected = texture2D(selectionState, stateUv).r; anatomyPosition = position;');
-    shader.fragmentShader='uniform vec4 slicePlane; uniform float sliceThickness; uniform float sliceActive; uniform float selectedOnly; varying float partVisible; varying float partSelected; varying vec3 anatomyPosition;\n'+shader.fragmentShader;
-    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (partVisible < 0.5 || (selectedOnly > 0.5 && partSelected < 0.5)) discard;\nif (sliceActive > 0.5) { float sliceDistance = dot(anatomyPosition, slicePlane.xyz) - slicePlane.w; if (sliceThickness > 0.0 ? abs(sliceDistance) > sliceThickness * 0.5 : sliceDistance > 0.0) discard; }');
+    shader.fragmentShader='uniform vec4 slicePlane; uniform float sliceThickness; uniform float sliceActive; uniform float selectedOnly; uniform float xrayActive; uniform float xrayRole; varying float partVisible; varying float partSelected; varying vec3 anatomyPosition;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <clipping_planes_fragment>','#include <clipping_planes_fragment>\nif (partVisible < 0.5 || (selectedOnly > 0.5 && partSelected < 0.5)) discard;\nif (xrayActive > 0.5 && ((xrayRole == 1.0 && partSelected < 0.5) || (xrayRole == 2.0 && partSelected > 0.5))) discard;\nif (sliceActive > 0.5) { float sliceDistance = dot(anatomyPosition, slicePlane.xyz) - slicePlane.w; if (sliceThickness > 0.0 ? abs(sliceDistance) > sliceThickness * 0.5 : sliceDistance > 0.0) discard; }');
+    // Ghost: nearly clear where the surface faces the viewer, denser toward its silhouette, like tissue seen edge-on in a radiograph.
+    if(m.userData.xrayRole===2)shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>','#include <opaque_fragment>\nfloat rim = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.5);\ngl_FragColor = vec4(mix(gl_FragColor.rgb, vec3(1.0), 0.15), mix(0.02, 0.32, rim));');
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.85, 0.78), partSelected * 0.75);');
    };materials.push(m);return m;
   };
   const materialFor=(system:string)=>{
    // Slicing is only applied to the cross-section passes; the lit anatomy is hidden while slicing.
-   const m=patchShader(new T.MeshStandardMaterial({color:tinted?'#ffffff':SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',vertexColors:tinted,metalness:.08,roughness:.53,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'}));
-   return m;
+   const m=new T.MeshStandardMaterial({color:tinted?'#ffffff':SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',vertexColors:tinted,metalness:.08,roughness:.53,side:T.DoubleSide,transparent:system==='integumentary',opacity:system==='integumentary'?.1:1,depthWrite:system!=='integumentary'});m.userData.xrayRole=1;
+   return patchShader(m);
   };
+  // Drawn after the solid selection without writing depth, so the selection shows through every ghost in front of it.
+  const ghostFor=(system:string)=>{const m=new T.MeshStandardMaterial({color:tinted?'#ffffff':SYSTEMS.find(s=>s.id===system)?.color??'#aebbb8',vertexColors:tinted,metalness:.08,roughness:.53,side:T.DoubleSide,transparent:true,depthWrite:false});m.userData.xrayRole=2;patchShader(m);
+   // Programs are cached by the onBeforeCompile source, which every patched material shares; the ghost's shader differs.
+   m.customProgramCacheKey=()=>'anatomy-ghost';return m;};
+  const ghosts=new Map(SYSTEMS.map(s=>[s.id,ghostFor(s.id)])),ghostMeshes:T.Mesh[]=[];
   // Stencil capping: surfaces behind the slice add +1 (back faces) or -1 (front faces), so a nonzero count marks points inside a closed structure.
   const stencilMaterial=(side:T.Side,op:T.StencilOp,selectedOnly:boolean)=>{const m=patchShader(new T.MeshBasicMaterial({side,colorWrite:false,depthWrite:false,depthTest:false,stencilWrite:true,stencilFunc:T.AlwaysStencilFunc,stencilFail:op,stencilZFail:op,stencilZPass:op}));m.userData.selectedOnly=selectedOnly;return m;};
   const stencilPasses=[false,true].map(selectedOnly=>[stencilMaterial(T.BackSide,T.IncrementWrapStencilOp,selectedOnly),stencilMaterial(T.FrontSide,T.DecrementWrapStencilOp,selectedOnly)]);
@@ -101,6 +109,8 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
     const list=groups.get(p.system)??[];list.push(g);groups.set(p.system,list);
    });
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);normalMeshes.push(mesh);
+    // A child of the lit mesh, so it hides with it while slicing.
+    const ghost=new T.Mesh(geometry,ghosts.get(system as never));ghost.frustumCulled=false;ghost.renderOrder=1;ghost.visible=lastXray;mesh.add(ghost);ghostMeshes.push(ghost);
     const order=CAP_ORDER.indexOf(system as SystemId);
     const passes:[T.Material,number][]=[...stencilPasses[0].map(m=>[m,order*2+1] as [T.Material,number]),...stencilPasses[1].map(m=>[m,500] as [T.Material,number]),[outlines.get(system as SystemId)!,600]];
     for(const [material,renderOrder] of passes){const pass=new T.Mesh(geometry,material);pass.renderOrder=renderOrder;pass.frustumCulled=false;scene.add(pass);sliceObjects.push(pass);}
@@ -170,6 +180,7 @@ export default function AnatomyScene({atlas,state,onSelect,onProgress,onError}:P
     const position=s.slice?.axis==='axial'?s.slice.position:null;if(position!==null&&lastSlicePosition!==null){const delta=position-lastSlicePosition;controls.target.y+=delta;camera.position.y+=delta;controls.update();}lastSlicePosition=position;}
    const image=s.slice?s.sliceImage:null,sliceView=`${!!s.slice}:${!!image}:${s.sliceAnatomy!==false}`;
    if(sliceView!==lastSliceView){normalMeshes.forEach(m=>m.visible=!s.slice||(!!image&&s.sliceAnatomy!==false));sliceObjects.forEach(o=>o.visible=!!s.slice&&!image);imagePlane.visible=!!image;lastSliceView=sliceView;dirty=true;}
+   if(!!s.xray!==lastXray){lastXray=!!s.xray;xrayUniforms.xrayActive.value=lastXray?1:0;ghostMeshes.forEach(g=>g.visible=lastXray);dirty=true;}
    if(image&&image.version!==lastImage){
     if(image.canvas!==imageCanvas){imageTexture?.dispose();imageTexture=new T.CanvasTexture(image.canvas);imageTexture.colorSpace=T.SRGBColorSpace;imageTexture.generateMipmaps=false;imageTexture.minFilter=T.LinearFilter;imageMaterial.map=imageTexture;imageMaterial.needsUpdate=true;imageCanvas=image.canvas;}
     else imageTexture!.needsUpdate=true;
