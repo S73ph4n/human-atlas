@@ -85,6 +85,8 @@ export const FR:Record<string,string>={
  'Pause rotation':'Mettre la rotation en pause','Rotate body':'Faire tourner le corps','Auto rotate':'Rotation automatique',
  'X-ray view':'Vue radiographique','X-ray: see the selected structures through the body (X)':'Radio : voir les structures sélectionnées à travers le corps (X)',
  'Reset view and layers':'Réinitialiser la vue et les couches',
+ 'Radiograph view':'Radiographie reconstruite','Radiograph: the CT projected through the body, as an X-ray beam would see it':'Radiographie : la TDM projetée à travers le corps, comme la verrait un faisceau de rayons X',
+ 'RADIOGRAPH PROJECTED FROM THE CT':'RADIOGRAPHIE PROJETÉE DEPUIS LA TDM',
  // Quiz
  'Radioanatomy quiz':'Quiz de radioanatomie','QUESTION {n} · {plane}':'QUESTION {n} · {plane}','{right}/{asked} correct':'{right}/{asked} correctes',
  'Nothing left to ask about.':'Plus rien à demander.','Preparing a question…':'Préparation d’une question…',

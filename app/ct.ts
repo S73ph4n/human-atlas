@@ -103,3 +103,24 @@ export function composeSlice(volume:CtVolume,image:CtImage,axis:SliceAxis,index:
  while(queue.length){const i=queue.pop()!,col=i%w;for(const n of [col>0?i-1:-1,col<w-1?i+1:-1,i-w,i+w])if(n>=0&&n<w*h&&!outside[n]&&d[n*4+3]===0){outside[n]=1;queue.push(n);}}
  for(let i=0;i<w*h;i++)if(!outside[i])d[i*4+3]=255;
 }
+/** Linear attenuation relative to water, 1 + HU/1000 below water (air 0, water 1). Above water it rises BONE_WEIGHT times
+ *  faster: a radiograph is taken at a lower effective energy than CT, where bone absorbs relatively more, which is why
+ *  it stands out on film. Stored as a byte at ATTENUATION_SCALE per unit so it fits a single-channel 3D texture. Cached per volume: the projection reads it every
+ *  time it is turned on. MR intensities are not attenuation, so only CT studies are projected. */
+export const ATTENUATION_SCALE=50;
+const BONE_WEIGHT=2;
+/** The bytes sit in a private field: React's development build describes changed props for its performance tracks by
+ *  walking them, and a 31 MB typed array walked index by index runs Firefox out of memory. */
+export class AttenuationVolume {
+ readonly shape:[number,number,number];readonly #data:Uint8Array<ArrayBuffer>;
+ constructor(data:Uint8Array<ArrayBuffer>,shape:[number,number,number]){this.#data=data;this.shape=shape;}
+ get data(){return this.#data;}
+}
+const attenuationCache=new WeakMap<CtImage,AttenuationVolume>();
+export function attenuationVolume(volume:CtVolume):AttenuationVolume{
+ let out=attenuationCache.get(volume.ct);if(out)return out;
+ const knots=volume.manifest.huKnots,size=knots[knots.length-1][0]+1,table=new Uint8Array(size);
+ for(let code=0;code<size;code++){const hu=valueOf(knots,code);table[code]=Math.round(Math.min(255,Math.max(0,1+hu/1000*(hu>0?BONE_WEIGHT:1))*ATTENUATION_SCALE));}
+ const ct=volume.ct,data=new Uint8Array(ct.length);for(let i=0;i<ct.length;i++)data[i]=table[ct[i]];
+ out=new AttenuationVolume(data,volume.manifest.shape);attenuationCache.set(volume.ct,out);return out;
+}

@@ -24,6 +24,8 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 - Turn systems or brain regions on and off, or hide single structures to see what lies beneath.
 - Isolate a structure, or explode the body into a spaced inventory of every piece.
 - Slice along axial, coronal, and sagittal planes. On CT and MRI studies the real image appears on the cut, inside the 3D anatomy.
+- X-ray view: every structure turns into a faint ghost except the selection, which shows through the body.
+- Radiograph (CT studies): the CT is projected through the body as an X-ray beam would record it, from whatever angle you orbit to, with the selected structure solid inside.
 
 **2D**
 - Scroll through slices in all three planes, with soft-tissue, lung, bone, and brain windows for CT and T1/T2 for MRI.

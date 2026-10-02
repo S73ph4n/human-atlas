@@ -6,6 +6,7 @@ import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {createExplosionLayout} from './explosion-layout';
 import {decodeModelResponse} from './model-download';
 import {PointerTap} from './pointer-tap';
+import {ATTENUATION_SCALE} from './ct';
 import {SLICE_AXES,SYSTEMS,groupOf,type Atlas,type SceneState,type SystemId} from './anatomy';
 // Cross-sections paint enclosing tissues first so the structures inside them stay on top.
 const CAP_ORDER:SystemId[]=['integumentary','connective','muscular','respiratory','digestive','urinary','reproductive','endocrine','lymphatic','cardiac','skeletal','sensory','nervous','venous','arterial'];
@@ -16,14 +17,14 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
  latest.current=state;select.current=onSelect;naming.current=nameOf;
  useEffect(()=>{
   const el=host.current!;let disposed=false,frame=0,dirty=true,ready=false,lastView='',lastReset=-1,lastIsolate='',layoutKey='',amount=0;
-  let lastState:SceneState|null=null;
+  let lastState:SceneState|null=null,lastMove=0;
   const abort=new AbortController();
   let renderer:T.WebGLRenderer;
   try{renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});}catch{onError('This browser could not start the 3D viewer. Please try a browser with WebGL enabled.');return;}
   renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<768?1.5:2));renderer.setClearColor('#f2f3f3');renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;el.appendChild(renderer.domElement);
   renderer.domElement.setAttribute('aria-label','Interactive human anatomy. Drag to orbit, pinch or scroll to zoom, and tap a structure to inspect it.');
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(34,1,.005,100),controls=new OrbitControls(camera,renderer.domElement);
-  camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;});
+  camera.position.set(1.4,1.05,3.6);controls.target.set(0,.85,0);controls.enableDamping=true;controls.dampingFactor=.085;controls.minDistance=.07;controls.maxDistance=40;controls.maxPolarAngle=Math.PI*.96;controls.addEventListener('change',()=>{dirty=true;lastMove=performance.now();});
   const pmrem=new T.PMREMGenerator(renderer),room=new RoomEnvironment(),env=pmrem.fromScene(room,.04);scene.environment=env.texture;room.dispose();pmrem.dispose();
   scene.add(new T.HemisphereLight(0xffffff,0xa7acb2,1.05));
   const key=new T.DirectionalLight(0xfffaf4,2.3);key.position.set(-2,4,3);scene.add(key);
@@ -42,7 +43,7 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
   // Reconstructed study models carry one colour per structure as a vertex attribute.
   const tinted=atlas.parts.some(p=>p.color);
   let packingWidth=1,packingHeight=1,lastSlice='',lastSlicePosition:number|null=null;
-  const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}},xrayUniforms={xrayActive:{value:0}};let lastXray=false;
+  const sliceUniforms={slicePlane:{value:new T.Vector4()},sliceActive:{value:0}},xrayUniforms={xrayActive:{value:0}};let lastXray='',ghostsOn=false;
   // Image mode (reconstructed study models): the study's slice on the cutting plane, with the clipped anatomy around it.
   const imageGeometry=new T.BufferGeometry();imageGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(12),3));imageGeometry.setAttribute('uv',new T.BufferAttribute(new Float32Array([0,1,1,1,0,0,1,0]),2));imageGeometry.setIndex([0,2,1,1,2,3]);
   const imageMaterial=new T.MeshBasicMaterial({side:T.DoubleSide,toneMapped:false,alphaTest:.5}),imagePlane=new T.Mesh(imageGeometry,imageMaterial);imagePlane.visible=false;imagePlane.frustumCulled=false;
@@ -95,6 +96,35 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
   const outlines=new Map(SYSTEMS.map(x=>{const m=patchShader(new T.MeshBasicMaterial({color:new T.Color(x.color).multiplyScalar(.42),side:T.DoubleSide,toneMapped:false,depthTest:false,depthWrite:false}));m.userData.sliceThickness=.0016;return [x.id,m];}));
   const mats=new Map(SYSTEMS.map(s=>[s.id,materialFor(s.id)]));
   materials.push(imageMaterial);scene.add(imagePlane);
+  // Projection: a digitally reconstructed radiograph. A unit box spans the CT volume (its local coordinates are the 3D
+  // texture's), and each fragment marches its camera ray through it, summing attenuation × path length in metres. The
+  // line integral is what a film records, so brightness rises with it, compressed by 1 − e^(−k·∫μ) so bone does not
+  // saturate, then raised to a power to deepen soft tissue; air stays black. Drawn on a dark background, white where tissue attenuates, as a radiograph is read.
+  const projectionMaterial=new T.ShaderMaterial({glslVersion:T.GLSL3,side:T.BackSide,transparent:true,depthWrite:false,
+   uniforms:{volume:{value:null},cameraLocal:{value:new T.Vector3()},toWorld:{value:new T.Matrix3()},density:{value:0},shape:{value:new T.Vector3(1,1,1)},stepVoxels:{value:1}},
+   vertexShader:'out vec3 vLocal; void main(){ vLocal = position + 0.5; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+   fragmentShader:`precision highp float; precision highp sampler3D;
+uniform sampler3D volume; uniform vec3 cameraLocal; uniform mat3 toWorld; uniform float density; uniform vec3 shape; uniform float stepVoxels;
+in vec3 vLocal; out vec4 outColor;
+void main(){
+ vec3 dir = normalize(vLocal - cameraLocal), inv = 1.0 / dir;
+ vec3 a = -cameraLocal * inv, b = (1.0 - cameraLocal) * inv, near = min(a, b), far = max(a, b);
+ float t0 = max(max(max(near.x, near.y), near.z), 0.0), t1 = min(min(far.x, far.y), far.z);
+ if (t1 <= t0) discard;
+ // One sample every stepVoxels voxels along this ray's own path, so short rays near the edge cost little.
+ int steps = int(clamp(ceil(length((t1 - t0) * dir * shape) / stepVoxels), 1.0, 768.0));
+ float dt = (t1 - t0) / float(steps), sum = 0.0;
+ for (int i = 0; i < steps; i++) { sum += texture(volume, cameraLocal + dir * (t0 + (float(i) + 0.5) * dt)).r; }
+ float integral = sum * length(toWorld * dir) * dt;
+ outColor = vec4(vec3(0.93, 0.96, 1.0), pow(1.0 - exp(-density * integral), 1.5));
+}`});
+  materials.push(projectionMaterial);
+  const projectionBox=new T.Mesh(new T.BoxGeometry(1,1,1),projectionMaterial);projectionBox.visible=false;projectionBox.frustumCulled=false;projectionBox.matrixAutoUpdate=false;projectionBox.renderOrder=2;scene.add(projectionBox);
+  let projectionTexture:T.Data3DTexture|null=null,lastProjection:SceneState['projection']=null;
+  const inverseBox=new T.Matrix4();
+  // μ of water at diagnostic energies is about 19 per metre. k = 0.22 puts a 30 cm abdomen near 0.7 before the 1.5 power,
+  // which darkens soft tissue so the lungs and bone separate from it.
+  const MU_WATER=19,COMPRESSION=.22;
   let loaded=0;
   const loadChunk=async(ci:number)=>{
    const chunk=atlas.chunks[ci],compressed=!!chunk.gzip&&typeof DecompressionStream!=='undefined';const response=await fetch(compressed?chunk.gzip!:chunk.url,{signal:abort.signal});const buffer=await decodeModelResponse(response,chunk.bytes,compressed);if(disposed)return;
@@ -111,7 +141,7 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
    });
    groups.forEach((gs,system)=>{const geometry=mergeGeometries(gs,false);if(!geometry)throw new Error('Could not assemble anatomy geometry.');geometries.push(geometry);const mesh=new T.Mesh(geometry,mats.get(system as never));mesh.frustumCulled=false;scene.add(mesh);normalMeshes.push(mesh);
     // A child of the lit mesh, so it hides with it while slicing.
-    const ghost=new T.Mesh(geometry,ghosts.get(system as never));ghost.frustumCulled=false;ghost.renderOrder=1;ghost.visible=lastXray;mesh.add(ghost);ghostMeshes.push(ghost);
+    const ghost=new T.Mesh(geometry,ghosts.get(system as never));ghost.frustumCulled=false;ghost.renderOrder=1;ghost.visible=ghostsOn;mesh.add(ghost);ghostMeshes.push(ghost);
     const order=CAP_ORDER.indexOf(system as SystemId);
     const passes:[T.Material,number][]=[...stencilPasses[0].map(m=>[m,order*2+1] as [T.Material,number]),...stencilPasses[1].map(m=>[m,500] as [T.Material,number]),[outlines.get(system as SystemId)!,600]];
     for(const [material,renderOrder] of passes){const pass=new T.Mesh(geometry,material);pass.renderOrder=renderOrder;pass.frustumCulled=false;scene.add(pass);sliceObjects.push(pass);}
@@ -130,7 +160,9 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
    const direction=view==='front'?new T.Vector3(0,.02,1):view==='back'?new T.Vector3(0,.02,-1):view==='side'?new T.Vector3(1,.02,0):new T.Vector3(.35,.06,1).normalize();
    controls.target.set(extent>.1&&el.clientWidth>767?-packingWidth*.12:0,extent>.1?.85:(mobile?.85:.68)*scale,0);camera.position.copy(controls.target).addScaledVector(direction,distance);controls.update();dirty=true;
   };
-  const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2));camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
+  // The radiograph is marched per pixel, so it renders at 1×: the CT's 1.5 mm voxels hold no finer detail anyway.
+  const pixelRatio=()=>lastProjection?1:Math.min(devicePixelRatio,el.clientWidth<768||el.clientHeight<600?1.5:2);
+  const resize=()=>{layoutKey='';lastState=null;renderer.setPixelRatio(pixelRatio());camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);fit(latest.current.view,amount);};const observer=new ResizeObserver(resize);observer.observe(el);
   const raycaster=new T.Raycaster(),pointer=new T.Vector2(),tap=new PointerTap(),worldBox=new T.Box3(),hitPoint=new T.Vector3();
   const down=(e:PointerEvent)=>{hover.hidden=true;tap.down(e.pointerId,e.clientX,e.clientY,e.pointerType==='touch'?12:5);};
   const probe=new T.Raycaster(),probeDirection=new T.Vector3(.31,.83,.47).normalize(),slicePoint=new T.Vector3(),slicePlane=new T.Plane();
@@ -181,7 +213,25 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
     const position=s.slice?.axis==='axial'?s.slice.position:null;if(position!==null&&lastSlicePosition!==null){const delta=position-lastSlicePosition;controls.target.y+=delta;camera.position.y+=delta;controls.update();}lastSlicePosition=position;}
    const image=s.slice?s.sliceImage:null,sliceView=`${!!s.slice}:${!!image}:${s.sliceAnatomy!==false}`;
    if(sliceView!==lastSliceView){normalMeshes.forEach(m=>m.visible=!s.slice||(!!image&&s.sliceAnatomy!==false));sliceObjects.forEach(o=>o.visible=!!s.slice&&!image);imagePlane.visible=!!image;lastSliceView=sliceView;dirty=true;}
-   if(!!s.xray!==lastXray){lastXray=!!s.xray;xrayUniforms.xrayActive.value=lastXray?1:0;ghostMeshes.forEach(g=>g.visible=lastXray);dirty=true;}
+   const projection=s.projection&&atlas.volume&&!s.slice?s.projection:null;
+   if(projection!==lastProjection){
+    projectionTexture?.dispose();projectionTexture=null;
+    if(projection){
+     const [X,Y,Z]=projection.shape,v=atlas.volume!,[sx,sy,sz]=v.spacing.map(n=>n/1000),[o0,o1,o2]=v.offset.map(n=>n/1000);
+     projectionTexture=new T.Data3DTexture(projection.data,X,Y,Z);projectionTexture.format=T.RedFormat;projectionTexture.type=T.UnsignedByteType;
+     projectionTexture.minFilter=projectionTexture.magFilter=T.LinearFilter;projectionTexture.unpackAlignment=1;projectionTexture.needsUpdate=true;
+     projectionMaterial.uniforms.volume.value=projectionTexture;
+     // Texture coordinates (u,v,w) ∈ [0,1]³ → scene, through voxelToScene with voxel index = u·X − ½: box local = uvw − ½.
+     const m=new T.Matrix4().set(-X*sx,0,0,(.5*sx+o0)-X*sx*.5, 0,0,Z*sz,(-.5*sz+o1)+Z*sz*.5, 0,Y*sy,0,(-.5*sy+o2)+Y*sy*.5, 0,0,0,1);
+     projectionBox.matrix.copy(m);projectionBox.matrixWorld.copy(m);inverseBox.copy(m).invert();
+     projectionMaterial.uniforms.toWorld.value.setFromMatrix4(m);projectionMaterial.uniforms.density.value=MU_WATER*COMPRESSION*255/ATTENUATION_SCALE;
+     projectionMaterial.uniforms.shape.value.set(X,Y,Z);
+    }
+    projectionBox.visible=!!projection;renderer.setClearColor(projection?'#06090d':'#f2f3f3');lastProjection=projection;renderer.setPixelRatio(pixelRatio());dirty=true;
+   }
+   // Both views keep only the selection solid; ghosts belong to the X-ray view alone.
+   const xrayKey=`${!!s.xray}:${!!projection}`;
+   if(xrayKey!==lastXray){lastXray=xrayKey;ghostsOn=!!s.xray&&!projection;xrayUniforms.xrayActive.value=s.xray||projection?1:0;ghostMeshes.forEach(g=>g.visible=ghostsOn);dirty=true;}
    if(image&&image.version!==lastImage){
     if(image.canvas!==imageCanvas){imageTexture?.dispose();imageTexture=new T.CanvasTexture(image.canvas);imageTexture.colorSpace=T.SRGBColorSpace;imageTexture.generateMipmaps=false;imageTexture.minFilter=T.LinearFilter;imageMaterial.map=imageTexture;imageMaterial.needsUpdate=true;imageCanvas=image.canvas;}
     else imageTexture!.needsUpdate=true;
@@ -196,12 +246,14 @@ export default function AnatomyScene({atlas,state,label,nameOf,onSelect,onProgre
     }else if(lastIsolate){camera.clearViewOffset();fit(s.view,amount);}
     lastIsolate=isolateKey;
    }
-   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const fromBelow=s.slice?.axis==='axial';controls.maxPolarAngle=fromBelow?Math.PI:Math.PI*.96;ground.visible=platform.visible=ring.visible=innerRing.visible=amount<.5&&!s.isolate&&!s.slice;markers.visible=amount>.75&&!s.slice;controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
-   if(dirty){renderer.render(scene,camera);targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
+   controls.enableRotate=amount<.8;controls.mouseButtons.LEFT=amount<.8?T.MOUSE.ROTATE:T.MOUSE.PAN;controls.touches.ONE=amount<.8?T.TOUCH.ROTATE:T.TOUCH.PAN;const fromBelow=s.slice?.axis==='axial';controls.maxPolarAngle=fromBelow?Math.PI:Math.PI*.96;ground.visible=platform.visible=ring.visible=innerRing.visible=amount<.5&&!s.isolate&&!s.slice&&!lastProjection;markers.visible=amount>.75&&!s.slice;controls.autoRotate=s.rotate&&!s.isolate&&amount<.4;controls.autoRotateSpeed=.65;controls.update();if(controls.autoRotate)dirty=true;
+   // While the camera moves the radiograph samples every 3 voxels; one full-quality frame follows once it settles.
+   if(lastProjection){const coarse=performance.now()-lastMove<180,step=coarse?3:1;if(step!==projectionMaterial.uniforms.stepVoxels.value){projectionMaterial.uniforms.stepVoxels.value=step;dirty=true;}}
+   if(dirty){if(lastProjection)projectionMaterial.uniforms.cameraLocal.value.copy(camera.position).applyMatrix4(inverseBox).addScalar(.5);renderer.render(scene,camera);targets=[];if(amount>.45){const hasSolid=atlas.parts.some((p,i)=>p.system!=='integumentary'&&data[i*4+3]>.5);atlas.parts.forEach((p,i)=>{if(data[i*4+3]<.5||(hasSolid&&p.system==='integumentary'))return;let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;for(let corner=0;corner<8;corner++){projected.set(p.bounds[(corner&1)?1:0][0]+data[i*4],p.bounds[(corner&2)?1:0][1]+data[i*4+1],p.bounds[(corner&4)?1:0][2]+data[i*4+2]).project(camera);const x=(projected.x+1)*el.clientWidth/2,y=(1-projected.y)*el.clientHeight/2;left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}projected.copy(centers[i]).add(new T.Vector3(data[i*4],data[i*4+1],data[i*4+2])).project(camera);if(projected.z< -1||projected.z>1)return;targets.push({index:i,x:(projected.x+1)*el.clientWidth/2,y:(1-projected.y)*el.clientHeight/2,left,right,top,bottom});});}dirty=false;}
 
   };animate();
   const contextLost=(e:Event)=>{e.preventDefault();onError('The 3D session was paused by your device. Reload to continue.');};renderer.domElement.addEventListener('webglcontextlost',contextLost);
-  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();partTexture.dispose();selectionTexture.dispose();imageTexture?.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;abort.abort();cancelAnimationFrame(frame);observer.disconnect();controls.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());scene.traverse(o=>{if(o instanceof T.Mesh&&!geometries.includes(o.geometry)){o.geometry.dispose();const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.dispose());}});env.dispose();partTexture.dispose();selectionTexture.dispose();imageTexture?.dispose();projectionTexture?.dispose();markerGeometry.dispose();markerMaterial.dispose();hover.remove();renderer.dispose();renderer.domElement.remove();};
  },[atlas]);
  useEffect(()=>{if(label)host.current?.querySelector('canvas')?.setAttribute('aria-label',label);},[label,atlas]);
  return <div className="scene" ref={host}/>;
