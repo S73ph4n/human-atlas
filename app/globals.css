@@ -158,3 +158,11 @@ body:has(.settings-panel) .quiz-panel{visibility:hidden}
 .top-actions{z-index:3}
 /* Four buttons no longer fit beside the title on a phone; the footer's Source & credits opens the same sheet. */
 @media(max-width:440px){.top-actions{gap:3px}.top-actions .about-button{display:none}}
+/* Three-plane layout: one pane per plane, outlined in its plane colour when active; panes stack on portrait screens. */
+.ct-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media(max-aspect-ratio:1/1){.ct-grid{grid-template-columns:none;grid-template-rows:repeat(3,minmax(0,1fr));gap:6px}}
+.ct-pane{position:relative;min-width:0;min-height:0;border-radius:10px;overflow:hidden;background:#e7eaeb;outline:2px solid transparent;outline-offset:-2px;transition:outline-color .15s}
+.ct-pane.active{outline-color:var(--plane)}.ct-pane canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.ct-tag{position:absolute;top:8px;left:8px;z-index:2;pointer-events:none;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums;color:#233644;background:#ffffffe0;padding:3px 7px 3px 6px;border-radius:5px;border-left:3px solid var(--plane)}
+.slice-axes button.plane-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--plane);margin-right:5px;flex:none}
+.slice-axes.ct-tools{flex:0 0 auto;margin:0 auto 0 6px}.slice-axes.ct-tools button{flex:none;padding:0 7px}

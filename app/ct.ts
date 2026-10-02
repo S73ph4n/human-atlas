@@ -54,6 +54,12 @@ export function voxelAt([X,Y,Z]:[number,number,number],axis:SliceAxis,index:numb
  if(axis==='coronal')return [X-1-col,index,Z-1-row];
  return [index,Y-1-col,Z-1-row];
 }
+/** Image pixel (col, row) of a voxel on a plane: the inverse of voxelAt. */
+export function pixelOf([X,Y,Z]:[number,number,number],axis:SliceAxis,[x,y,z]:[number,number,number]):[number,number]{
+ if(axis==='axial')return [X-1-x,Y-1-y];
+ if(axis==='coronal')return [X-1-x,Z-1-z];
+ return [Y-1-y,Z-1-z];
+}
 
 /** Writes the greyscale slice and the label slice (label ids per pixel) for one plane. */
 export function extractPlane(volume:CtVolume,ct:CtImage,axis:SliceAxis,index:number,table:Uint8Array,grey:Uint8ClampedArray,ids:Uint16Array){
