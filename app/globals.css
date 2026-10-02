@@ -136,3 +136,25 @@ body:has(.detail-sheet) .ct-view{right:420px}
 .quiz-panel .context-note{margin:0}
 @media(max-width:767px){.quiz-panel{right:12px;left:12px;top:auto;bottom:calc(139px + env(safe-area-inset-bottom));transform:none;width:auto;padding:14px;gap:10px;background:#fffffff5}.quiz-prompt{font-size:15px}.quiz-choice{font-size:14px}}
 .quiz-summary{font-size:12px;line-height:1.6;color:#66727f;margin:0;display:-webkit-box;-webkit-line-clamp:4;line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Settings: what the quiz cuts and what it asks about, in a panel beside the top actions. */
+.top-actions button.active{background:#263b4812;color:#263b48}
+.settings-panel{position:absolute;right:30px;top:94px;width:336px;max-height:min(660px,calc(100dvh - 190px));border-radius:14px;padding:14px 8px 0 18px;display:flex;flex-direction:column;z-index:20}
+.settings-scroll{flex:0 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-right:10px;scrollbar-width:thin;scrollbar-color:#b9c1c8 transparent}
+.settings-group{padding-bottom:10px;margin-bottom:4px;border-bottom:1px solid #18253612}
+.settings-group:last-child{border-bottom:0;margin-bottom:0}
+.settings-group h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:12px;font-weight:600;color:#26313c;margin:14px 0 0;padding:0 5px}
+.settings-note{font-size:11px;line-height:1.55;color:#78838f;margin:7px 0 2px;padding:0 5px}
+.settings-group .layer-presets{margin:9px 0 4px;border-bottom:0}
+.settings-panel .panel-foot{margin-right:10px}
+/* The panel takes the quiz's place in the right column while it is open, rather than covering it. */
+body:has(.settings-panel) .quiz-panel{visibility:hidden}
+@media(max-width:767px){
+ .settings-panel{top:max(108px,calc(env(safe-area-inset-top) + 90px));left:12px;right:12px;width:auto;max-height:min(520px,calc(100dvh - 230px));z-index:40;background:#fffffff5;padding:10px 6px 0 14px}
+ .settings-group h3{font-size:13px}.settings-note{font-size:12px}
+}
+@media(max-height:600px) and (orientation:landscape){.settings-panel{top:72px;left:auto;right:12px;width:336px;max-height:calc(100dvh - 96px)}}
+/* The title is drawn above the scene, so the controls claim their own layer to stay legible over it. */
+.top-actions{z-index:3}
+/* Four buttons no longer fit beside the title on a phone; the footer's Source & credits opens the same sheet. */
+@media(max-width:440px){.top-actions{gap:3px}.top-actions .about-button{display:none}}

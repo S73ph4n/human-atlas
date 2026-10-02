@@ -35,6 +35,7 @@ Pick a study at the top of the panel, then view it in **3D** or, for CT and MRI 
 - Questions come from the study's own labels, all of them, on any slice where the structure appears — not only its widest one. The arrow points at the deepest interior pixel, so an imprecise boundary never makes a question unfair.
 - The three wrong answers are structures of the same region or system, or the nearest neighbours, so they are worth ruling out.
 - Answering reveals the structure on the image with its summary; from there one click opens it labelled in 2D.
+- **Settings** (the sliders button beside the search box) narrow the drill: the planes it cuts on, the types of structure it asks about — bones, vessels, organs, or a study's own regions — and whether labels a model generated are fair game. Both the answer and the three wrong ones come from the types you leave on, and your choices are remembered between visits.
 
 ## Install and run
 
@@ -93,7 +94,7 @@ npm run check                            # TypeScript
 node scripts/validate-atlas.mjs          # 3D data integrity
 node scripts/validate-interactions.mjs   # tap and drag handling
 node scripts/validate-facts.mjs          # structure facts and their coverage
-node scripts/validate-quiz.mjs           # quiz questions: every arrow lands inside its answer
+node scripts/validate-quiz.mjs           # quiz questions: arrows, answers, and the settings that narrow them
 ```
 
 **Adding a CT study.** Download a subject folder from the TotalSegmentator dataset (it contains `ct.nii.gz` and `segmentations/`), then:

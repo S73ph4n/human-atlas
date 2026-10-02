@@ -1,7 +1,7 @@
 import {flushSync} from 'react-dom';
 import {registerAtlasTools} from './agent-tools';
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {Activity,ArrowUpRight,ChevronRight,Eye,EyeOff,Focus,Info,Layers3,Pause,RotateCcw,RotateCw,ScanLine,Search,X} from 'lucide-react';
+import {Activity,ArrowUpRight,ChevronRight,Eye,EyeOff,Focus,Info,Layers3,Pause,RotateCcw,RotateCw,ScanLine,Search,SlidersHorizontal,X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Slider} from '@/components/ui/slider';
@@ -14,16 +14,20 @@ import CtView from './ct-view';
 import {CT_AXIS,CT_STUDIES,CT_WINDOWS,composeSlice,labelColors,loadCt,planeSize,sliceCorners,voxelToScene,windowTable,type CtLabel,type CtStudy,type CtVolume,type CtWindow} from './ct';
 import {DEFAULT_VISIBLE,MODELS,SLICE_AXES,SYSTEMS,EXPLANATIONS,explanation,groupOf,type ModelId,type Atlas,type Concept,type SceneState,type SliceAxis,type SystemId,type View} from './anatomy';
 import {loadFacts,structureFacts,type FactsFile,type StructureFacts} from './facts';
-import {makeQuestion,type Question} from './quiz';
+import {makeQuestion,quizPool,type Question} from './quiz';
+import {DEFAULT_SETTINGS,loadSettings,saveSettings} from './settings';
 const CT_ENDS:Record<SliceAxis,[string,string]>={axial:['Inferior','Superior'],coronal:['Posterior','Anterior'],sagittal:['Right','Left']};
 const initial:SceneState={explode:0,visible:DEFAULT_VISIBLE,selected:[],slice:null,isolate:false,view:'three-quarter',rotate:false,reset:0};
 export default function Home(){
  const detailTitle=useRef<HTMLHeadingElement>(null);
- const [modelId,setModelId]=useState<ModelId>('reference'),pendingPart=useRef<string|null>(null),[atlas,setAtlas]=useState<Atlas|null>(null),[state,setState]=useState(initial),[progress,setProgress]=useState(0),[error,setError]=useState(''),[panel,setPanel]=useState<'layers'|'search'|null>(null),[details,setDetails]=useState(false),[about,setAbout]=useState(false),[query,setQuery]=useState(''),[chosen,setChosen]=useState<Concept|null>(null),[hidden,setHidden]=useState<Concept[]>([]);
+ const [modelId,setModelId]=useState<ModelId>('reference'),pendingPart=useRef<string|null>(null),[atlas,setAtlas]=useState<Atlas|null>(null),[state,setState]=useState(initial),[progress,setProgress]=useState(0),[error,setError]=useState(''),[panel,setPanel]=useState<'layers'|'search'|'settings'|null>(null),[details,setDetails]=useState(false),[about,setAbout]=useState(false),[query,setQuery]=useState(''),[chosen,setChosen]=useState<Concept|null>(null),[hidden,setHidden]=useState<Concept[]>([]);
  const [view,setView]=useState<'3d'|'2d'|'quiz'>('3d'),[atlasId,setAtlasId]=useState<string|null>(null),pendingSlice=useRef(false),[ctVolumes,setCtVolumes]=useState<Partial<Record<CtStudy,CtVolume>>>({}),[ctProgress,setCtProgress]=useState(0),[ct,setCt]=useState({study:'s0476' as CtStudy,axis:'axial' as SliceAxis,pos:[0,0,0] as [number,number,number],window:'soft' as CtWindow,series:'t1',hidden:[] as string[],overlay:true,opacity:.35,selected:null as number|null,selectKey:null as string|null});
  const [sliceAnatomy,setSliceAnatomy]=useState(true);
  // Quiz: one question at a time, its answer revealed in place. recent keeps the last structures from coming back at once.
  const [quiz,setQuiz]=useState({question:null as Question|null,answer:null as number|null,asked:0,right:0,recent:[] as number[]});
+ // Reader preferences, remembered across visits; they narrow what the quiz asks about.
+ const [settings,setSettings]=useState(loadSettings);
+ useEffect(()=>saveSettings(settings),[settings]);
  // One study list drives both views: the 3D model and, for CT and MRI studies, the 2D slices. mode derives from the study and the view.
  const studyInfo=CT_STUDIES.find(x=>x.id===modelId),mode=view!=='3d'&&studyInfo?(studyInfo.modality==='MR'?'mr':'ct'):'atlas',slices=mode!=='atlas';
  const studySlice=mode==='atlas'&&!!state.slice&&!!atlas?.study&&!!atlas?.volume;
@@ -99,14 +103,24 @@ export default function Home(){
  const sliceIn3D=()=>setState(s=>({...s,slice:{axis:ct.axis,position:0},view:SLICE_AXES.find(a=>a.id===ct.axis)!.view,explode:0,rotate:false,isolate:false,reset:s.reset+1}));
  const goTo3D=()=>{if(view==='3d')return;setView('3d');setPanel(null);setQuery('');setDetails(false);if(!studyInfo)return;if(atlasId===modelId)sliceIn3D();else pendingSlice.current=true;};
  const goTo2D=()=>{if(view==='2d'||!studyInfo)return;const key=atlas?.study===modelId&&selectedParts.length===1?selected!.id.slice(modelId.length+1):null;setView('2d');setPanel(null);setQuery('');setDetails(false);if(key)setCt(c=>({...c,selectKey:key}));};
+ // What the settings leave for the quiz: the planes to cut on, and the structures both the question and its wrong answers come from.
+ const quizAxes=useMemo(()=>SLICE_AXES.map(a=>a.id).filter(id=>settings.quizAxes.includes(id)),[settings.quizAxes]);
+ const quizLabels=useMemo(()=>quizPool(ctLabels,settings.quizExcluded,settings.quizGenerated),[ctVolume,settings.quizExcluded,settings.quizGenerated]);
+ const quizGroupRows=useMemo(()=>ctGroups.map(g=>({...g,askable:ctLabels.filter(l=>groupOf(l)===g.id&&(settings.quizGenerated||!l.generated)).length})),[ctGroups,ctVolume,settings.quizGenerated]);
+ const toggleQuizAxis=(id:SliceAxis)=>setSettings(s=>({...s,quizAxes:SLICE_AXES.map(a=>a.id).filter(a=>a===id?!s.quizAxes.includes(id):s.quizAxes.includes(a))}));
+ const toggleQuizGroup=(id:string)=>setSettings(s=>({...s,quizExcluded:s.quizExcluded.includes(id)?s.quizExcluded.filter(x=>x!==id):[...s.quizExcluded,id]}));
  // Quiz mode: the slice is drawn without labels and an arrow marks one structure; answering reveals it.
  const quizMode=view==='quiz'&&!!studyInfo,answered=quiz.answer!==null,quizOpen=quizMode&&!!quiz.question;
- const nextQuestion=()=>{const volume=ctVolumes[ct.study];if(!volume)return;const question=makeQuestion(volume,SLICE_AXES.map(a=>a.id),quiz.recent);if(!question)return;
-  setQuiz(q=>({...q,question,answer:null,recent:[question.labelId,...q.recent].slice(0,12)}));setCt(c=>({...c,axis:question.axis,pos:question.voxel,selected:null}));setDetails(false);setPanel(null);};
+ const quizBlocked=quizMode&&!quiz.question&&!!ctVolume&&(!quizAxes.length||quizLabels.length<2);
+ const nextQuestion=()=>{const volume=ctVolumes[ct.study];if(!volume)return;const question=makeQuestion(volume,quizAxes,quiz.recent,Math.random,quizLabels);if(!question)return;
+  setQuiz(q=>({...q,question,answer:null,recent:[question.labelId,...q.recent].slice(0,12)}));setCt(c=>({...c,axis:question.axis,pos:question.voxel,selected:null}));setDetails(false);setPanel(p=>p==='settings'?p:null);};
  const answerQuestion=(id:number)=>{if(!quiz.question||quiz.answer!==null)return;const label=quiz.question.labelId;
   setQuiz(q=>({...q,answer:id,asked:q.asked+1,right:q.right+(id===label?1:0)}));setCt(c=>({...c,selected:label}));};
  const goToQuiz=()=>{if(view==='quiz'||!studyInfo)return;setView('quiz');setPanel(null);setQuery('');setDetails(false);if(ct.study!==modelId)switchStudy(modelId as CtStudy);};
- useEffect(()=>{if(quizMode&&!quiz.question&&ctVolume)nextQuestion();},[quizMode,quiz.question,ctVolume]);
+ // Changing the settings drops the question on screen, and builds the next one under the new ones — including when
+ // the settings had left nothing to ask and the quiz is sitting on an empty question.
+ useEffect(()=>{setQuiz(q=>q.question?{...q,question:null,answer:null}:q);},[quizAxes,quizLabels]);
+ useEffect(()=>{if(quizMode&&!quiz.question&&ctVolume)nextQuestion();},[quizMode,quiz.question,ctVolume,quizAxes,quizLabels]);
  useEffect(()=>{if(!quizOpen)return;const key=(e:KeyboardEvent)=>{
    if(e.target instanceof HTMLInputElement||e.target instanceof HTMLTextAreaElement||e.ctrlKey||e.metaKey||e.altKey)return;
    const slot=Number(e.key);
@@ -119,13 +133,13 @@ export default function Home(){
  const switchStudy=(study:CtStudy)=>{const v=ctVolumes[study],info=CT_STUDIES.find(x=>x.id===study)!;setCt(c=>({...c,study,selected:null,hidden:[],window:info.window,series:info.modality==='MR'?'t1':'ct',pos:v?ctStart(v):c.pos}));setDetails(false);setQuiz({question:null,answer:null,asked:0,right:0,recent:[]});if(v)setCtProgress(100);};
  const selectStudy=(id:ModelId)=>{setModelId(id);if(!CT_STUDIES.some(x=>x.id===id))setView('3d');else if(ct.study!==id)switchStudy(id as CtStudy);setDetails(false);setPanel(null);setQuery('');};
  const sliceLabel=(()=>{if(!state.slice)return '';const p=state.slice.position,cm=(Math.abs(p)*100).toFixed(1);if(state.slice.axis==='axial')return `${cm} cm`;if(Math.abs(p)<.0005)return 'Midline';return state.slice.axis==='coronal'?`${cm} cm ${p>0?'ant.':'post.'}`:`${cm} cm ${p>0?'left':'right'}`;})();
- const openPanel=(next:'layers'|'search')=>{setDetails(false);setPanel(p=>p===next?null:next);};
+ const openPanel=(next:'layers'|'search'|'settings')=>{setDetails(false);setPanel(p=>p===next?null:next);};
  return <main className={`studio mode-${mode} ${slices?'mode-slices':''}`}>
   {atlas&&<AnatomyScene atlas={atlas} state={{...state,slice:sceneSlice,sliceImage,sliceAnatomy,hidden:hiddenIds,inspectorOpen:details&&selectedParts.length>0}} onSelect={choosePart} onProgress={n=>{setProgress(n);if(n===100)setError('');}} onError={setError}/>}
   <div className="vignette"/>
   {slices&&ctVolume&&ctImage&&<CtView volume={ctVolume} image={ctImage} axis={ct.axis} index={ctIndex} table={ctTable} overlay={quizOpen&&!answered?false:ct.overlay} opacity={ct.opacity} shown={ctShown} selected={quizOpen&&!answered?null:ct.selected} marker={quizOpen?quiz.question:null} quiet={quizOpen&&!answered} onSelect={id=>{const l=ctLabels.find(x=>x.id===id);if(l)chooseCtLabel(l,false);}} onStep={d=>stepCt(d,false)}/>}
   <header className="identity"><div className="eyebrow"><span className="status-dot"/> INTERACTIVE ANATOMY</div><h1>Human Atlas<Badge variant="outline" className="edition">3D</Badge></h1><div className="identity-meta">{slices?<>{isMr?'MRI':'CT'} · {ctStudy.name} · {ctLabels.length||''} labels <span>·</span> {ctStudy.credit}</>:atlas?.study?<>3D · {MODELS.find(m=>m.id===modelId)?.name.split(' · ').pop()} · {atlas.parts.length} surfaces <span>·</span> from {atlas.modality==='MR'?'MRI':'CT'} labels</>:<>{atlas?atlas.parts.length.toLocaleString():'2,234'} modeled pieces <span>·</span> {atlas?.sex==='female'?'Human Reference Atlas':'BodyParts3D'}</>}</div></header>
-  <nav className="top-actions" aria-label="Explorer panels"><div className="mode-switch" role="group" aria-label="View"><Button variant="ghost" aria-pressed={view==='3d'} onClick={goTo3D} title="3D anatomy">3D</Button><Button variant="ghost" aria-pressed={view==='2d'} disabled={!studyInfo} onClick={goTo2D} title={!studyInfo?'The reference bodies have no CT or MRI images':`${studyInfo?.modality==='MR'?'MRI':'CT'} slices`}>2D</Button><Button variant="ghost" aria-pressed={view==='quiz'} disabled={!studyInfo} onClick={goToQuiz} title={!studyInfo?'The reference bodies have no CT or MRI images':'Name the structure the arrow points to'}>Quiz</Button></div><Button variant="ghost" className={panel==='search'?'active':''} onClick={()=>openPanel('search')} aria-label="Search anatomy"><Search size={18}/><span>Find a structure</span><kbd>/</kbd></Button><Button variant="ghost" className="icon-button" aria-label="About this atlas" onClick={()=>{setDetails(false);setPanel(null);setAbout(true);}}><Info size={18}/></Button></nav>
+  <nav className="top-actions" aria-label="Explorer panels"><div className="mode-switch" role="group" aria-label="View"><Button variant="ghost" aria-pressed={view==='3d'} onClick={goTo3D} title="3D anatomy">3D</Button><Button variant="ghost" aria-pressed={view==='2d'} disabled={!studyInfo} onClick={goTo2D} title={!studyInfo?'The reference bodies have no CT or MRI images':`${studyInfo?.modality==='MR'?'MRI':'CT'} slices`}>2D</Button><Button variant="ghost" aria-pressed={view==='quiz'} disabled={!studyInfo} onClick={goToQuiz} title={!studyInfo?'The reference bodies have no CT or MRI images':'Name the structure the arrow points to'}>Quiz</Button></div><Button variant="ghost" className={panel==='search'?'active':''} onClick={()=>openPanel('search')} aria-label="Search anatomy"><Search size={18}/><span>Find a structure</span><kbd>/</kbd></Button><Button variant="ghost" className={`icon-button ${panel==='settings'?'active':''}`} aria-label="Quiz settings" title="Quiz settings" onClick={()=>openPanel('settings')}><SlidersHorizontal size={18}/></Button><Button variant="ghost" className="icon-button about-button" aria-label="About this atlas" onClick={()=>{setDetails(false);setPanel(null);setAbout(true);}}><Info size={18}/></Button></nav>
   <section className={`layers-panel glass ${panel==='layers'?'mobile-open':''}`} aria-label="Anatomical layers">
    <div className="panel-heading"><span>{slices?'Labels':'Systems'}</span><Button variant="ghost" className="mobile-only icon-button" onClick={()=>setPanel(null)} aria-label="Close systems"><X size={18}/></Button><Badge variant="secondary" className="desktop-only small-number">{activeSystems.length}</Badge></div>
    
@@ -140,16 +154,39 @@ export default function Home(){
   </section>
   {panel==='search'&&slices&&<section className="search-panel glass" aria-label="Find a labelled structure"><div className="panel-heading"><span>Find a labelled structure</span><Button variant="ghost" className="icon-button" onClick={()=>setPanel(null)} aria-label="Close search"><X size={18}/></Button></div><Combobox<CtLabel> items={ctResults} value={null} onValueChange={value=>{if(value)chooseCtLabel(value,true);}} inputValue={query} onInputValueChange={setQuery} itemToStringLabel={l=>l.name} filter={null} open onOpenChange={open=>{if(!open)setPanel(null);}}><ComboboxInput autoFocus placeholder={isMr?'Thalamus, hippocampus, cerebellum…':'Liver, L3 vertebra, aorta…'} aria-label="Search labelled structures" showTrigger={false}/><ComboboxContent className="anatomy-search-results"><ComboboxEmpty>No labelled structures match.</ComboboxEmpty><ComboboxList>{(l:CtLabel)=><ComboboxItem key={l.id} value={l}><span className="search-result-name">{l.name}</span><span className="small-number">{ctGroupName(l)}{l.generated?' · model':''}</span></ComboboxItem>}</ComboboxList></ComboboxContent></Combobox><p className="search-note">Choosing a structure moves the slice to its centre.</p></section>}
   {panel==='search'&&mode==='atlas'&&<section className="search-panel glass" aria-label="Find anatomy"><div className="panel-heading"><span>Find a structure</span><Button variant="ghost" className="icon-button" onClick={()=>setPanel(null)} aria-label="Close search"><X size={18}/></Button></div><Combobox<Concept> items={results} value={null} onValueChange={value=>{if(value)choose(value);}} inputValue={query} onInputValueChange={setQuery} itemToStringLabel={c=>c.name} filter={null} open onOpenChange={open=>{if(!open)setPanel(null);}}><ComboboxInput autoFocus placeholder="Heart, femur, cranial nerve…" aria-label="Search named anatomical structures" showTrigger={false}/><ComboboxContent className="anatomy-search-results"><ComboboxEmpty>No structures match your search.</ComboboxEmpty><ComboboxList>{(c:Concept)=><ComboboxItem key={c.id} value={c}><span className="search-result-name">{c.name}</span><span className="small-number">{c.elements.length} {c.elements.length===1?'piece':'pieces'}</span></ComboboxItem>}</ComboboxList></ComboboxContent></Combobox><p className="search-note">{query?'Showing up to 80 matches. Refine your search to find smaller structures.':'Start with a major organ, or search every named structure.'}</p></section>}
+  {panel==='settings'&&<section className="settings-panel glass" aria-label="Quiz settings">
+   <div className="panel-heading"><span>Quiz settings</span><Button variant="ghost" className="icon-button" onClick={()=>setPanel(null)} aria-label="Close settings"><X size={18}/></Button></div>
+   <div className="settings-scroll">
+    <div className="settings-group"><h3>Slice planes</h3>
+     <p className="settings-note">Questions are cut on these planes only.</p>
+     {SLICE_AXES.map(a=><div className={`system-row ${settings.quizAxes.includes(a.id)?'enabled':''}`} key={a.id}><span className="system-name">{a.name}</span><Switch checked={settings.quizAxes.includes(a.id)} onCheckedChange={()=>toggleQuizAxis(a.id)} aria-label={`Ask ${a.name.toLowerCase()} questions`}/></div>)}
+    </div>
+    <div className="settings-group"><h3>Structure types{ctVolume&&<span className="small-number">{ctStudy.name}</span>}</h3>
+     {quizGroupRows.length?<>
+      <p className="settings-note">The structure asked about and the three wrong answers both come from the types left on.</p>
+      <div className="layer-presets"><Button variant="ghost" aria-pressed={quizGroupRows.every(g=>!settings.quizExcluded.includes(g.id))} onClick={()=>setSettings(s=>({...s,quizExcluded:s.quizExcluded.filter(id=>!quizGroupRows.some(g=>g.id===id))}))}>All</Button><Button variant="ghost" aria-pressed={quizGroupRows.every(g=>settings.quizExcluded.includes(g.id))} onClick={()=>setSettings(s=>({...s,quizExcluded:[...new Set([...s.quizExcluded,...quizGroupRows.map(g=>g.id)])]}))}>None</Button></div>
+      {quizGroupRows.map(g=><div className={`system-row ${settings.quizExcluded.includes(g.id)?'':'enabled'}`} key={g.id}><span className="system-name"><span className="system-dot" style={{background:g.color}}/>{g.name}<span className="system-count">{g.askable}</span></span><Switch checked={!settings.quizExcluded.includes(g.id)} onCheckedChange={()=>toggleQuizGroup(g.id)} aria-label={`Quiz ${g.name.toLowerCase()}`}/></div>)}
+     </>:<p className="settings-note">Open a CT or MRI study to choose which of its structure types are quizzed. Every study keeps its own list of types; what you turn off here stays off wherever it appears.</p>}
+    </div>
+    <div className="settings-group"><h3>Label quality</h3>
+     <p className="settings-note">Some labels — most of the head and neck ones — were generated by the TotalSegmentator model and never checked by an expert.</p>
+     <div className={`system-row ${settings.quizGenerated?'enabled':''}`}><span className="system-name">Ask about generated labels</span><Switch checked={settings.quizGenerated} onCheckedChange={v=>setSettings(s=>({...s,quizGenerated:v}))} aria-label="Ask about model-generated labels"/></div>
+    </div>
+   </div>
+   <div className="panel-foot"><span>{ctVolume?`${quizLabels.length} of ${ctLabels.length} structures can be asked`:'Settings apply to every study'}</span><Button variant="ghost" onClick={()=>setSettings(DEFAULT_SETTINGS)}>Reset</Button></div>
+  </section>}
   <nav className="view-controls glass" aria-label="Camera controls">{(['three-quarter','front','side','back'] as View[]).map((v,i)=><Button variant="ghost" key={v} className={state.view===v?'active':''} aria-pressed={state.view===v} disabled={state.explode>.8&&v!=='front'} onClick={()=>setState(s=>({...s,view:v,reset:s.reset+1,rotate:false}))} title={`${v} view`} aria-label={`${v} view`}><span>{['¾','F','S','B'][i]}</span></Button>)}<i/><Button variant="ghost" disabled={state.explode>=.4} aria-label={state.rotate?'Pause rotation':'Rotate body'} title="Auto rotate" className={state.rotate?'active':''} onClick={()=>setState(s=>({...s,rotate:!s.rotate}))}>{state.rotate?<Pause size={17}/>:<RotateCw size={18}/>}</Button><Button variant="ghost" aria-label="Reset view and layers" title="Reset" onClick={reset}><RotateCcw size={17}/></Button></nav>
   {quizMode&&<section className="quiz-panel glass" aria-label="Radioanatomy quiz">
    <div className="quiz-head"><span className="eyebrow">QUESTION {quiz.asked+(answered?0:1)} · {ct.axis.toUpperCase()}</span>{quiz.asked>0&&<span className="small-number">{quiz.right}/{quiz.asked} correct</span>}</div>
-   <h2 className="quiz-prompt">{!quiz.question?'Preparing a question…':!answered?'Which structure does the arrow point to?':quiz.answer===quiz.question.labelId?'Correct.':`Not quite — it is the ${ctLabels.find(l=>l.id===quiz.question!.labelId)?.name}.`}</h2>
+   <h2 className="quiz-prompt">{!quiz.question?(quizBlocked?'Nothing left to ask about.':'Preparing a question…'):!answered?'Which structure does the arrow point to?':quiz.answer===quiz.question.labelId?'Correct.':`Not quite — it is the ${ctLabels.find(l=>l.id===quiz.question!.labelId)?.name}.`}</h2>
+   {quizBlocked&&<p className="quiz-summary">{!quizAxes.length?'No slice plane is selected.':`Fewer than two structures of the selected types are labelled in ${ctStudy.name}.`}</p>}
    <div className="quiz-choices" role="group" aria-label="Answers">{quiz.question?.choices.map((id,i)=>{const label=ctLabels.find(l=>l.id===id),state=!answered?'':id===quiz.question!.labelId?'right':id===quiz.answer?'wrong':'';
     return <Button variant="ghost" key={id} className={`quiz-choice ${state}`} disabled={answered} onClick={()=>answerQuestion(id)}><kbd>{i+1}</kbd><span>{label?.name}</span></Button>;})}</div>
    {answered&&ctFacts?.summary&&<p className="quiz-summary">{ctFacts.summary}</p>}
    <div className="quiz-actions">{answered?<>
     <Button variant="ghost" className="secondary-action" onClick={()=>{setView('2d');setDetails(true);}}>Show it labelled, with details</Button>
     <Button className="primary-action" onClick={nextQuestion}>Next question<kbd>↵</kbd><ChevronRight size={16}/></Button></>:
+    quizBlocked?<Button variant="ghost" className="secondary-action" onClick={()=>openPanel('settings')}><SlidersHorizontal size={14}/>Change the quiz settings</Button>:
     <Button variant="ghost" className="secondary-action" onClick={nextQuestion} disabled={!quiz.question}>Skip this one</Button>}</div>
    {answered&&ctLabels.find(l=>l.id===quiz.question!.labelId)?.generated&&<span className="context-note">This label was generated by the TotalSegmentator model and has not been checked by an expert.</span>}
   </section>}

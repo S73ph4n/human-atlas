@@ -72,23 +72,29 @@ function distractors(labels:CtLabel[],target:CtLabel,random:()=>number){
  return chosen;
 }
 
+/** The labels a quiz may ask about: the structure types the reader left on, minus the model-generated labels when
+ *  those are turned off. Group ids are a study's own (brain regions) or body systems, as everywhere else. */
+export function quizPool(labels:CtLabel[],excluded:string[],generated:boolean){
+ return labels.filter(l=>!excluded.includes(groupOf(l))&&(generated||!l.generated));
+}
+
 /** The labels a question can point at: those with a cross-section of at least MIN_PIXELS on some slice. */
 export function askableLabels(volume:CtVolume,axes:SliceAxis[]){
  return volume.manifest.labels.filter(label=>axes.some(axis=>sliceCounts(volume,label,axis).some(count=>count>=MIN_PIXELS))).map(l=>l.id);
 }
 
-/** One question, or null when nothing in the volume can be asked. Labels in `recent` are skipped while others remain. */
-export function makeQuestion(volume:CtVolume,axes:SliceAxis[],recent:number[]=[],random:()=>number=Math.random):Question|null{
- const labels=volume.manifest.labels;
- if(labels.length<2||!axes.length)return null;
- const fresh=labels.filter(l=>!recent.includes(l.id)),candidates=fresh.length?fresh:labels;
+/** One question, or null when nothing can be asked. Labels in `recent` are skipped while others remain; `pool`
+ *  restricts both the structure asked about and its wrong answers, so a narrowed quiz stays internally consistent. */
+export function makeQuestion(volume:CtVolume,axes:SliceAxis[],recent:number[]=[],random:()=>number=Math.random,pool:CtLabel[]=volume.manifest.labels):Question|null{
+ if(pool.length<2||!axes.length)return null;
+ const fresh=pool.filter(l=>!recent.includes(l.id)),candidates=fresh.length?fresh:pool;
  for(let attempt=0;attempt<24;attempt++){
   const label=pick(candidates,random),axis=pick(axes,random),counts=sliceCounts(volume,label,axis),usable:number[]=[];
   for(let index=0;index<counts.length;index++)if(counts[index]>=MIN_PIXELS)usable.push(index);
   if(!usable.length)continue;
   const index=pick(usable,random),[w,h]=planeSize(volume.manifest.shape,axis),ids=sliceIds(volume,axis,index),tip=deepestPixel(ids,label.id,w,h);
   if(!tip)continue;
-  const voxel=voxelAt(volume.manifest.shape,axis,index,tip[0],tip[1]),choices=[label,...distractors(labels,label,random)].map(l=>l.id);
+  const voxel=voxelAt(volume.manifest.shape,axis,index,tip[0],tip[1]),choices=[label,...distractors(pool,label,random)].map(l=>l.id);
   for(let i=choices.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[choices[i],choices[j]]=[choices[j],choices[i]];}
   return {labelId:label.id,axis,index,voxel,tip,tail:arrowTail(ids,label.id,w,h,tip),choices};
  }

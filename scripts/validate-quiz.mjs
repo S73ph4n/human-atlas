@@ -1,5 +1,6 @@
 /** Checks the radioanatomy quiz against every study: each arrow lands inside the structure it asks about, the
- *  choices are distinct and contain the answer, and virtually every label can be asked.
+ *  choices are distinct and contain the answer, virtually every label can be asked, and the quiz settings hold —
+ *  a narrowed quiz stays inside its planes and its structure types, answers and wrong answers alike.
  *  Run: node scripts/validate-quiz.mjs */
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -10,7 +11,8 @@ registerHooks({resolve(specifier,context,next){
  try{return next(specifier,context);}
  catch(error){if(/^\.{1,2}\//.test(specifier))return next(`${specifier}.ts`,context);throw error;}
 }});
-const {askableLabels,makeQuestion}=await import('../app/quiz.ts');
+const {askableLabels,makeQuestion,quizPool}=await import('../app/quiz.ts');
+const {groupOf}=await import('../app/anatomy.ts');
 const {CT_AXIS,planeSize}=await import('../app/ct.ts');
 
 const QUESTIONS=200;
@@ -41,6 +43,20 @@ for(const path of studies){
   assert.equal(q.choices.length,Math.min(4,manifest.labels.length),`${manifest.id}: wrong number of choices`);
   seen.add(q.labelId);
  }
- console.log(`${manifest.id.padEnd(10)} ${QUESTIONS} questions, ${seen.size} different structures asked, ${askable.length}/${manifest.labels.length} askable`);
+ // Settings: one plane and every group but the first. Both the answer and the wrong answers must stay in the pool.
+ const groups=[...new Set(manifest.labels.map(groupOf))];
+ const pool=quizPool(manifest.labels,groups.slice(0,1),false),ids=new Set(pool.map(l=>l.id));
+ if(pool.length>=2){
+  const narrow=rng(4711);
+  for(let i=0;i<QUESTIONS;i++){
+   const q=makeQuestion(volume,['coronal'],[],narrow,pool);
+   assert.ok(q,`${manifest.id}: no question inside the chosen structure types`);
+   assert.equal(q.axis,'coronal',`${manifest.id}: asked on ${q.axis}, which the settings exclude`);
+   for(const id of q.choices) assert.ok(ids.has(id),`${manifest.id}: choice ${id} is outside the chosen structure types`);
+  }
+ }
+ assert.equal(makeQuestion(volume,[],[],random),null,`${manifest.id}: a question was built with no plane selected`);
+ assert.equal(makeQuestion(volume,axes,[],random,pool.slice(0,1)),null,`${manifest.id}: a question was built from one structure`);
+ console.log(`${manifest.id.padEnd(10)} ${QUESTIONS} questions, ${seen.size} different structures asked, ${askable.length}/${manifest.labels.length} askable, ${pool.length} in the narrowed pool`);
 }
 console.log('quiz ok');
