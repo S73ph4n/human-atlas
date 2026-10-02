@@ -5,7 +5,10 @@
  *  systems, the same ids the label panel switches. */
 import {SLICE_AXES,type SliceAxis} from './anatomy';
 import type {Locale} from './i18n';
-export interface Settings {locale?:Locale;quizAxes:SliceAxis[];quizExcluded:string[];quizGenerated:boolean}
+/** Bars a reader has collapsed to a tab, to give the image more room on small screens. */
+export const BARS=['layers','dock','camera','quiz'] as const;
+export type Bar=typeof BARS[number];
+export interface Settings {locale?:Locale;collapsed?:Bar[];quizAxes:SliceAxis[];quizExcluded:string[];quizGenerated:boolean}
 const ALL_AXES=SLICE_AXES.map(a=>a.id);
 export const DEFAULT_SETTINGS:Settings={quizAxes:ALL_AXES,quizExcluded:[],quizGenerated:true};
 const KEY='human-atlas:settings';
@@ -17,6 +20,7 @@ export function loadSettings():Settings{
   return {
    locale:stored.locale==='en'||stored.locale==='fr'?stored.locale:undefined,
    quizAxes:Array.isArray(stored.quizAxes)?ALL_AXES.filter(id=>stored.quizAxes!.includes(id)):DEFAULT_SETTINGS.quizAxes,
+   collapsed:Array.isArray(stored.collapsed)?BARS.filter(id=>stored.collapsed!.includes(id)):[],
    quizExcluded:Array.isArray(stored.quizExcluded)?stored.quizExcluded.filter(id=>typeof id==='string'):[],
    quizGenerated:stored.quizGenerated!==false,
   };

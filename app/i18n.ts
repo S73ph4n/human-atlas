@@ -85,6 +85,8 @@ export const FR:Record<string,string>={
  'Pause rotation':'Mettre la rotation en pause','Rotate body':'Faire tourner le corps','Auto rotate':'Rotation automatique',
  'X-ray view':'Vue radiographique','X-ray: see the selected structures through the body (X)':'Radio : voir les structures sélectionnées à travers le corps (X)',
  'Reset view and layers':'Réinitialiser la vue et les couches',
+ 'Hide panel':'Masquer le panneau','Hide controls':'Masquer les commandes','Show controls':'Afficher les commandes','Controls':'Commandes',
+ 'Hide camera controls':'Masquer les contrôles de la caméra','Show camera controls':'Afficher les contrôles de la caméra','Collapse the quiz':'Réduire le quiz','Expand the quiz':'Déplier le quiz',
  'Radiograph view':'Radiographie reconstruite','Radiograph: the CT projected through the body, as an X-ray beam would see it':'Radiographie : la TDM projetée à travers le corps, comme la verrait un faisceau de rayons X',
  'RADIOGRAPH PROJECTED FROM THE CT':'RADIOGRAPHIE PROJETÉE DEPUIS LA TDM',
  // Quiz

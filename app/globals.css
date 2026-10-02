@@ -173,3 +173,26 @@ html[lang=fr] :is(.part-hover,.structure-title,.search-result-name,.hidden-item 
 html[lang=fr] :is(.part-hover,.structure-title,.search-result-name,.hidden-item span,.quiz-choice span)::first-letter{text-transform:uppercase}
 /* Radiograph view: the scene turns dark, so the text drawn straight on it turns light. */
 .mode-radiograph .identity h1,.mode-radiograph .identity .eyebrow{color:#e6ebf0}.mode-radiograph .identity-meta,.mode-radiograph .scene-caption,.mode-radiograph .studio-footer,.mode-radiograph .studio-footer button{color:#9aa6b2}.mode-radiograph .studio-footer b{color:#5d6873}.mode-radiograph .vignette{display:none}
+/* Collapsible bars: each one folds into a tab at its edge, and the image takes the room it leaves. */
+.bar-collapse{width:28px;min-width:28px;height:28px;min-height:28px;padding:0;color:#7f8c98;border-radius:7px}.bar-collapse:hover{color:#263b48;background:#18253610}
+.layers-panel .panel-heading .bar-collapse{margin-left:4px}
+.quiz-head{justify-content:flex-start}.quiz-head>:first-child{margin-right:auto}
+.dock-collapse{position:absolute;top:4px;right:4px;width:24px;min-width:24px;height:24px;min-height:24px}
+.edge-tab{position:absolute;z-index:4;width:44px;min-width:44px;height:44px;padding:0;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#3c4956}
+.layers-tab{left:30px;top:180px}.camera-tab{right:30px;top:50%;transform:translateY(-50%)}
+.dock-tab{position:absolute;z-index:4;bottom:54px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;height:36px;padding:0 15px;border-radius:18px;font-size:12px;color:#3c4956}
+.collapsed-layers .layers-panel:not(.mobile-open),.collapsed-camera .view-controls,.collapsed-dock .bottom-dock,.collapsed-quiz .quiz-panel>:not(.quiz-head){display:none}
+.mode-slices .camera-tab{visibility:hidden}
+.collapsed-dock .ct-view{bottom:100px}.collapsed-dock .scene-caption{bottom:100px}
+@media(min-width:768px) and (min-height:601px){.collapsed-layers .ct-view{left:94px}}
+@media(max-width:1000px){.layers-tab{left:20px}.camera-tab{right:20px}}
+@media(max-width:767px),(max-height:600px) and (orientation:landscape){.layers-tab,.layers-panel .bar-collapse{display:none}}
+@media(max-width:767px){
+ .camera-tab{right:12px;top:max(112px,calc(env(safe-area-inset-top) + 94px));transform:none}
+ body:has(.detail-sheet) .camera-tab{visibility:hidden}
+ .dock-tab{bottom:calc(30px + env(safe-area-inset-bottom))}
+ .collapsed-dock .ct-view{bottom:calc(80px + env(safe-area-inset-bottom))}
+ .collapsed-dock .scene-caption{bottom:calc(80px + env(safe-area-inset-bottom))}
+ .collapsed-dock .quiz-panel{bottom:calc(80px + env(safe-area-inset-bottom))}
+}
+@media(max-height:600px) and (orientation:landscape){.camera-tab{top:76px;right:max(12px,env(safe-area-inset-right));transform:none}.dock-tab{bottom:22px}.collapsed-dock .ct-view{bottom:66px}}
